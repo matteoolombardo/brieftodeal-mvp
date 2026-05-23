@@ -1,0 +1,25 @@
+# Variabili d'ambiente — MAI su git
+.env
+
+# File temporanei Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Ambiente virtuale
+venv/
+.venv/
+env/
+
+# PDF generati
+*.pdf
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
