@@ -50,7 +50,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS']      = {'pool_pre_ping': True}
 db.init_app(app)
 CORS(app,
      origins=ALLOWED_ORIGIN,
-     expose_headers=['X-Doc-Id', 'X-Share-Token', 'Content-Disposition'])
+     expose_headers=['X-Doc-Id', 'X-Share-Token', 'X-Share-Url', 'X-Cache', 'Content-Disposition'])
 
 with app.app_context():
     db.create_all()
