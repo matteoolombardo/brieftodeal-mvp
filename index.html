@@ -21,6 +21,16 @@
     body { background-color: #0D0D1A; }
     textarea::placeholder { color: #6B7280; }
     textarea:focus { outline: none; box-shadow: 0 0 0 2px #7C3AED; }
+
+    /* Card slide-in */
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide-up { animation: slideUp 0.3s ease-out both; }
+
+    /* Copy button feedback */
+    .copy-btn.copied { background-color: #059669 !important; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center px-4 py-12 font-sans">
@@ -78,13 +88,88 @@
       Genera Documento
     </button>
 
-    <!-- Successo -->
-    <div id="successo" class="hidden w-full rounded-2xl border border-purple-700 bg-purple-950
-                               text-purple-200 text-sm p-4 flex items-center gap-3">
-      <span class="text-2xl">✓</span>
-      <div>
-        <p class="font-semibold" id="successoTitolo">PDF generato!</p>
-        <p class="text-purple-400 text-xs mt-0.5" id="successoSub"></p>
+    <!-- Card risultato (nascosta inizialmente) -->
+    <div id="resultCard" class="hidden slide-up w-full rounded-2xl border border-gray-700
+                                 bg-gray-900 overflow-hidden">
+
+      <!-- Card header -->
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+        <div class="flex items-center gap-2">
+          <span id="cardTipoLabel"
+            class="text-xs font-semibold px-2.5 py-1 rounded-full"
+            style="background:#2D1B69; color:#A78BFA;">
+            Contratto
+          </span>
+          <span id="cardCacheBadge"
+            class="text-xs font-semibold px-2.5 py-1 rounded-full hidden">
+          </span>
+        </div>
+        <span id="cardCreatedAt" class="text-gray-500 text-xs"></span>
+      </div>
+
+      <!-- Dati documento -->
+      <div class="px-5 py-4">
+        <h2 id="cardCliente" class="text-xl font-bold text-white mb-0.5"></h2>
+        <p  id="cardAzienda"  class="text-gray-400 text-sm mb-4"></p>
+
+        <div class="divide-y divide-gray-800">
+          <div class="flex justify-between py-2.5">
+            <span class="text-gray-400 text-sm">Servizio</span>
+            <span id="cardServizio" class="text-gray-100 text-sm font-medium"></span>
+          </div>
+          <div class="flex justify-between py-2.5">
+            <span class="text-gray-400 text-sm">Importo mensile</span>
+            <span id="cardImporto" class="text-gray-100 text-sm font-medium"></span>
+          </div>
+          <div class="flex justify-between py-2.5">
+            <span class="text-gray-400 text-sm">Durata</span>
+            <span id="cardDurata" class="text-gray-100 text-sm font-medium"></span>
+          </div>
+          <div class="flex justify-between py-2.5">
+            <span class="text-gray-400 text-sm">Inizio</span>
+            <span id="cardInizio" class="text-gray-100 text-sm font-medium"></span>
+          </div>
+          <div class="flex justify-between py-2.5">
+            <span class="text-gray-500 text-sm font-semibold">Totale</span>
+            <span id="cardTotale" class="font-bold text-base" style="color:#A78BFA;"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Azioni -->
+      <div class="px-5 pb-5 flex flex-col sm:flex-row gap-3">
+
+        <!-- Copia link condivisibile -->
+        <button id="copyBtn"
+          onclick="copiaLink()"
+          class="copy-btn flex-1 flex items-center justify-center gap-2 py-2.5 px-4
+                 rounded-xl font-semibold text-sm text-white transition-colors duration-200"
+          style="background-color:#7C3AED;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656
+                 l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0
+                 00-5.656-5.656l-1.1 1.1"/>
+          </svg>
+          <span id="copyBtnText">Copia link condivisibile</span>
+        </button>
+
+        <!-- Scarica PDF di nuovo -->
+        <button id="redownloadBtn"
+          onclick="riscaricaPdf()"
+          class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4
+                 rounded-xl font-semibold text-sm text-gray-300 border border-gray-600
+                 hover:border-gray-400 transition-colors duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0
+                 0l-4-4m4 4V4"/>
+          </svg>
+          Scarica PDF
+        </button>
+
       </div>
     </div>
 
@@ -95,14 +180,16 @@
   </div>
 
   <script>
-    // ── Configurazione backend ────────────────────────────────────────────────
-    // Locale (Flask su porta 5000): lascia stringa vuota → URL relativo
-    // Produzione (Railway):         inserisci URL completo Railway
-    //   es. const BACKEND_URL = 'https://brieftodeal-production.up.railway.app';
+    // ── Config ────────────────────────────────────────────────────────────────
     const BACKEND_URL = '';
 
+    // ── Stato ─────────────────────────────────────────────────────────────────
     let tipoSelezionato = 'contratto';
+    let ultimoShareUrl  = '';
+    let ultimoPdfBlob   = null;
+    let ultimoFilename  = 'documento.pdf';
 
+    // ── Selettore tipo ────────────────────────────────────────────────────────
     function selezionaTipo(tipo) {
       tipoSelezionato = tipo;
       ['contratto', 'preventivo', 'onboarding'].forEach(t => {
@@ -117,13 +204,14 @@
       });
     }
 
+    // ── Genera documento ──────────────────────────────────────────────────────
     async function generaDocumento() {
-      const brief     = document.getElementById('briefText').value.trim();
-      const btn       = document.getElementById('generateBtn');
-      const successo  = document.getElementById('successo');
+      const brief = document.getElementById('briefText').value.trim();
+      const btn   = document.getElementById('generateBtn');
+      const card  = document.getElementById('resultCard');
       const erroreDiv = document.getElementById('errore');
 
-      successo.classList.add('hidden');
+      card.classList.add('hidden');
       erroreDiv.classList.add('hidden');
 
       if (!brief) return mostraErrore('Il brief è vuoto. Incolla il testo del cliente.');
@@ -143,24 +231,26 @@
           throw new Error(err.error || `Errore HTTP ${response.status}`);
         }
 
-        // Legge il PDF come blob e lo scarica automaticamente
-        const blob        = await response.blob();
+        // Leggi headers PRIMA di consumare il body
+        const docId      = response.headers.get('X-Doc-Id');
+        const shareUrl   = response.headers.get('X-Share-Url');
+        const cacheHit   = response.headers.get('X-Cache') === 'HIT';
         const disposition = response.headers.get('Content-Disposition') || '';
         const match       = disposition.match(/filename="?([^";\n]+)"?/);
-        const filename    = match ? match[1] : 'contratto.pdf';
+        ultimoFilename    = match ? match[1] : `${tipoSelezionato}.pdf`;
 
-        const url = URL.createObjectURL(blob);
-        const a   = document.createElement('a');
-        a.href     = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Salva blob per ri-download
+        ultimoPdfBlob  = await response.blob();
+        ultimoShareUrl = shareUrl || '';
 
-        document.getElementById('successoTitolo').textContent = `PDF scaricato: ${filename}`;
-        document.getElementById('successoSub').textContent    = 'Contratto generato con successo.';
-        successo.classList.remove('hidden');
+        // Scarica PDF automaticamente
+        _triggerDownload(ultimoPdfBlob, ultimoFilename);
+
+        // Popola card con metadati da /api/doc/<id>
+        if (docId) {
+          const meta = await fetch(BACKEND_URL + '/api/doc/' + docId).then(r => r.json());
+          mostraCard(meta, shareUrl, cacheHit);
+        }
 
       } catch (e) {
         mostraErrore(e.message || 'Errore sconosciuto.');
@@ -170,6 +260,95 @@
       }
     }
 
+    // ── Popola e mostra la card risultato ─────────────────────────────────────
+    function mostraCard(meta, shareUrl, cacheHit) {
+      const TIPO_LABEL = { contratto: 'Contratto', preventivo: 'Preventivo', onboarding: 'Onboarding' };
+
+      // Header
+      document.getElementById('cardTipoLabel').textContent = TIPO_LABEL[meta.tipo_documento] || meta.tipo_documento;
+      document.getElementById('cardCreatedAt').textContent = meta.created_at || '';
+
+      // Cache badge
+      const badge = document.getElementById('cardCacheBadge');
+      if (cacheHit) {
+        badge.textContent = '⚡ Da cache';
+        badge.style.background = '#052e16';
+        badge.style.color      = '#4ade80';
+        badge.classList.remove('hidden');
+      } else {
+        badge.textContent = '✨ Nuovo';
+        badge.style.background = '#2D1B69';
+        badge.style.color      = '#A78BFA';
+        badge.classList.remove('hidden');
+      }
+
+      // Dati
+      document.getElementById('cardCliente').textContent  = meta.nome_cliente  || '—';
+      document.getElementById('cardAzienda').textContent  = meta.azienda        || '—';
+      document.getElementById('cardServizio').textContent = meta.tipo_servizio  || '—';
+      document.getElementById('cardDurata').textContent   = meta.durata_mesi ? `${meta.durata_mesi} mesi` : '—';
+      document.getElementById('cardInizio').textContent   = meta.data_inizio    || '—';
+
+      const importo = parseFloat(meta.importo_mensile) || 0;
+      document.getElementById('cardImporto').textContent  = importo ? `EUR ${importo.toLocaleString('it-IT', {minimumFractionDigits:2})}` : '—';
+      document.getElementById('cardTotale').textContent   = meta.totale         || '—';
+
+      // Bottone copia: mostralo solo se c'è un link
+      document.getElementById('copyBtn').style.display = shareUrl ? '' : 'none';
+
+      // Slide-in
+      const card = document.getElementById('resultCard');
+      card.classList.remove('hidden');
+      // Re-trigger animation
+      card.classList.remove('slide-up');
+      void card.offsetWidth;
+      card.classList.add('slide-up');
+    }
+
+    // ── Copia link negli appunti ──────────────────────────────────────────────
+    async function copiaLink() {
+      if (!ultimoShareUrl) return;
+      try {
+        await navigator.clipboard.writeText(ultimoShareUrl);
+      } catch {
+        // fallback per browser senza clipboard API
+        const el = document.createElement('textarea');
+        el.value = ultimoShareUrl;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      }
+      const btn  = document.getElementById('copyBtn');
+      const text = document.getElementById('copyBtnText');
+      btn.classList.add('copied');
+      text.textContent = 'Link copiato!';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.style.backgroundColor = '#7C3AED';
+        text.textContent = 'Copia link condivisibile';
+      }, 2000);
+    }
+
+    // ── Ri-scarica PDF già generato ───────────────────────────────────────────
+    function riscaricaPdf() {
+      if (!ultimoPdfBlob) return;
+      _triggerDownload(ultimoPdfBlob, ultimoFilename);
+    }
+
+    // ── Helper download blob ──────────────────────────────────────────────────
+    function _triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href     = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ── Mostra errore ─────────────────────────────────────────────────────────
     function mostraErrore(msg) {
       const d = document.getElementById('errore');
       d.textContent = msg;
