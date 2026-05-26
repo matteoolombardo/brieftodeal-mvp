@@ -18,13 +18,16 @@ import io
 import json
 import os
 import re
+import secrets
 import tempfile
 from datetime import datetime
 
 import anthropic
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template_string, request, send_file
+from flask import (Flask, jsonify, redirect, render_template_string,
+                   request, send_file, session, url_for)
 from flask_cors import CORS
+from sqlalchemy import func
 
 from generate_html import genera_html
 from generate_pdf import genera_pdf
@@ -37,6 +40,7 @@ ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 ALLOWED_ORIGIN    = os.environ.get('ALLOWED_ORIGIN', '*')
 DATABASE_URL      = os.environ.get('DATABASE_URL', 'sqlite:///brieftodeal.db')
 BASE_URL          = os.environ.get('BASE_URL', 'http://localhost:5000')
+ADMIN_PASSWORD    = os.environ.get('ADMIN_PASSWORD', 'btd-admin-2026')
 
 # Railway usa postgres://, SQLAlchemy richiede postgresql://
 if DATABASE_URL.startswith('postgres://'):
@@ -47,6 +51,7 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 app.config['SQLALCHEMY_DATABASE_URI']        = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS']      = {'pool_pre_ping': True}
+app.config['SECRET_KEY']                     = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
 db.init_app(app)
 CORS(app,
@@ -497,6 +502,340 @@ def waitlist():
         return jsonify({'error': 'Errore salvataggio'}), 500
 
     return jsonify({'ok': True}), 201
+
+
+# ── Admin templates ────────────────────────────────────────────────────────────
+
+ADMIN_LOGIN_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin — BriefToDeal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-extrabold" style="color:#7C3AED;">BriefToDeal</h1>
+      <p class="text-gray-400 text-sm mt-1">Area amministrativa</p>
+    </div>
+    <div class="rounded-2xl border border-gray-700 bg-gray-800 p-7">
+      {% if error %}
+      <p class="text-red-400 text-sm text-center mb-4">{{ error }}</p>
+      {% endif %}
+      <form method="POST" action="/admin/login">
+        <label class="block text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1.5">
+          Password
+        </label>
+        <input type="password" name="password" autofocus
+               placeholder="••••••••"
+               class="w-full rounded-xl border border-gray-600 bg-gray-900 text-gray-100
+                      text-sm px-4 py-3 mb-4 focus:outline-none"
+               style="box-shadow:none;"
+               onfocus="this.style.boxShadow='0 0 0 2px #7C3AED'"
+               onblur="this.style.boxShadow='none'"/>
+        <button type="submit"
+                class="w-full py-3 rounded-xl text-white font-semibold text-sm
+                       hover:opacity-90 transition-opacity"
+                style="background-color:#7C3AED;">
+          Accedi &rarr;
+        </button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+ADMIN_DASHBOARD_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard — BriefToDeal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #F3F4F6; }
+    th { font-weight: 600; }
+  </style>
+</head>
+<body class="min-h-screen font-sans">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="text-xl font-extrabold" style="color:#7C3AED;">BriefToDeal</span>
+      <span class="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Admin</span>
+    </div>
+    <a href="/admin/logout"
+       class="text-sm text-gray-500 hover:text-red-500 transition-colors">
+      Esci
+    </a>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8">
+
+    <!-- KPI cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-3xl font-extrabold" style="color:#7C3AED;">{{ doc_count }}</div>
+        <div class="text-gray-500 text-sm mt-1">Documenti totali</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-3xl font-extrabold" style="color:#7C3AED;">{{ email_count }}</div>
+        <div class="text-gray-500 text-sm mt-1">Email raccolte</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-3xl font-extrabold" style="color:#7C3AED;">{{ waitlist_count }}</div>
+        <div class="text-gray-500 text-sm mt-1">Lista d'attesa Pro</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-3xl font-extrabold" style="color:#7C3AED;">{{ share_views }}</div>
+        <div class="text-gray-500 text-sm mt-1">Visualizzazioni link</div>
+      </div>
+    </div>
+
+    <!-- Waitlist Pro -->
+    <section>
+      <h2 class="text-lg font-bold text-gray-800 mb-3">Lista d'attesa Pro</h2>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th class="text-left px-5 py-3 text-gray-600">Email</th>
+              <th class="text-left px-5 py-3 text-gray-600">Data iscrizione</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for e in waitlist %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-5 py-3 text-gray-800 font-medium">{{ e.email }}</td>
+              <td class="px-5 py-3 text-gray-400">{{ e.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="2" class="px-5 py-6 text-center text-gray-400 text-sm italic">
+                Nessuna iscrizione ancora.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Doc per utente -->
+    <section>
+      <h2 class="text-lg font-bold text-gray-800 mb-3">Documenti per utente</h2>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th class="text-left px-5 py-3 text-gray-600">Email</th>
+              <th class="text-left px-5 py-3 text-gray-600">Documenti</th>
+              <th class="text-left px-5 py-3 text-gray-600">Ultimo documento</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for row in docs_by_user %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-5 py-3 text-gray-700">
+                {{ row.email if row.email else '<span class=\"text-gray-400 italic\">anonimo</span>'|safe }}
+              </td>
+              <td class="px-5 py-3 font-bold" style="color:#7C3AED;">{{ row.count }}</td>
+              <td class="px-5 py-3 text-gray-400">{{ row.last_doc }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Ultimi 50 documenti -->
+    <section>
+      <h2 class="text-lg font-bold text-gray-800 mb-3">Ultimi 50 documenti</h2>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th class="text-left px-5 py-3 text-gray-600">Data</th>
+                <th class="text-left px-5 py-3 text-gray-600">Tipo</th>
+                <th class="text-left px-5 py-3 text-gray-600">Cliente</th>
+                <th class="text-left px-5 py-3 text-gray-600">Email</th>
+                <th class="text-center px-5 py-3 text-gray-600">Download</th>
+                <th class="text-center px-5 py-3 text-gray-600">Cache</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              {% for doc in recent_docs %}
+              <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-5 py-3 text-gray-400 whitespace-nowrap">
+                  {{ doc.created_at.strftime('%d/%m/%Y %H:%M') }}
+                </td>
+                <td class="px-5 py-3">
+                  <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                        style="background:#EDE9FE; color:#7C3AED;">
+                    {{ doc.tipo_documento }}
+                  </span>
+                </td>
+                <td class="px-5 py-3 text-gray-800 font-medium">
+                  {{ doc.extracted_json.get('nome_cliente', '—') if doc.extracted_json else '—' }}
+                </td>
+                <td class="px-5 py-3 text-gray-500">{{ doc.user_email or '—' }}</td>
+                <td class="px-5 py-3 text-center text-gray-500">{{ doc.download_count }}</td>
+                <td class="px-5 py-3 text-center">
+                  {% if doc.brief_hash %}
+                  <span class="text-xs text-green-600">✓</span>
+                  {% else %}
+                  <span class="text-xs text-gray-300">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="6" class="px-5 py-6 text-center text-gray-400 text-sm italic">
+                  Nessun documento ancora.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quota usage top IPs -->
+    <section>
+      <h2 class="text-lg font-bold text-gray-800 mb-3">Utilizzo quota (top IP questo mese)</h2>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th class="text-left px-5 py-3 text-gray-600">IP hash (SHA-256)</th>
+              <th class="text-left px-5 py-3 text-gray-600">Mese</th>
+              <th class="text-left px-5 py-3 text-gray-600">Documenti usati</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for q in quota_top %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-5 py-3 text-gray-400 font-mono text-xs">{{ q.ip_hash[:16] }}…</td>
+              <td class="px-5 py-3 text-gray-600">{{ q.month }}</td>
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-2">
+                  <div class="w-24 bg-gray-100 rounded-full h-1.5">
+                    <div class="h-1.5 rounded-full"
+                         style="width:{{ [q.count * 33, 100]|min }}%;
+                                background-color:{{ '#EF4444' if q.count >= 3 else '#7C3AED' }};"></div>
+                  </div>
+                  <span class="font-semibold {{ 'text-red-500' if q.count >= 3 else 'text-gray-700' }}">
+                    {{ q.count }} / 3
+                  </span>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm italic">
+                Nessun dato quota.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</body>
+</html>
+"""
+
+
+# ── Admin routes ───────────────────────────────────────────────────────────────
+
+@app.route('/admin')
+def admin_dashboard():
+    if not session.get('btd_admin'):
+        return redirect('/admin/login')
+
+    # KPI
+    doc_count     = Document.query.count()
+    email_count   = (Document.query
+                     .filter(Document.user_email.isnot(None))
+                     .distinct(Document.user_email)
+                     .count())
+    waitlist_count = WaitlistEntry.query.count()
+    share_views   = db.session.query(func.sum(SharedLink.view_count)).scalar() or 0
+
+    # Waitlist
+    waitlist = WaitlistEntry.query.order_by(WaitlistEntry.created_at.desc()).all()
+
+    # Documenti per utente (raggruppa per email, ordina per count desc)
+    rows = (db.session.query(
+                Document.user_email,
+                func.count(Document.id).label('count'),
+                func.max(Document.created_at).label('last_doc'),
+            )
+            .group_by(Document.user_email)
+            .order_by(func.count(Document.id).desc())
+            .all())
+    docs_by_user = [
+        {
+            'email':    r.user_email,
+            'count':    r.count,
+            'last_doc': r.last_doc.strftime('%d/%m/%Y %H:%M') if r.last_doc else '—',
+        }
+        for r in rows
+    ]
+
+    # Ultimi 50 documenti
+    recent_docs = (Document.query
+                   .order_by(Document.created_at.desc())
+                   .limit(50)
+                   .all())
+
+    # Top quota questo mese
+    month_now = datetime.utcnow().strftime('%Y-%m')
+    quota_top = (UsageQuota.query
+                 .filter_by(month=month_now)
+                 .order_by(UsageQuota.count.desc())
+                 .limit(20)
+                 .all())
+
+    return render_template_string(
+        ADMIN_DASHBOARD_TEMPLATE,
+        doc_count      = doc_count,
+        email_count    = email_count,
+        waitlist_count = waitlist_count,
+        share_views    = share_views,
+        waitlist       = waitlist,
+        docs_by_user   = docs_by_user,
+        recent_docs    = recent_docs,
+        quota_top      = quota_top,
+    )
+
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    error = None
+    if request.method == 'POST':
+        pwd = request.form.get('password', '')
+        if pwd == ADMIN_PASSWORD:
+            session['btd_admin'] = True
+            return redirect('/admin')
+        error = 'Password errata.'
+    return render_template_string(ADMIN_LOGIN_TEMPLATE, error=error)
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('btd_admin', None)
+    return redirect('/admin/login')
 
 
 if __name__ == '__main__':
