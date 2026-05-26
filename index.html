@@ -36,7 +36,9 @@
     #emailModalOverlay { animation: fadeIn 0.2s ease-out both; }
     #emailModalBox     { animation: popIn  0.25s ease-out both; }
 
-    #emailInput:focus  { outline: none; box-shadow: 0 0 0 2px #7C3AED; }
+    #emailInput:focus       { outline: none; box-shadow: 0 0 0 2px #7C3AED; }
+    #upgradeModalBox        { animation: popIn 0.25s ease-out both; }
+    #waitlistEmailInput:focus { outline: none; box-shadow: 0 0 0 2px #7C3AED; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center px-4 py-12 font-sans">
@@ -99,6 +101,98 @@
   </div>
   <!-- ─────────────────────────────────────────────────────────────────────── -->
 
+  <!-- ─── Modale upgrade Pro ──────────────────────────────────────────────── -->
+  <div id="upgradeModalOverlay"
+       class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+       style="background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);">
+
+    <div id="upgradeModalBox"
+         class="w-full max-w-md rounded-2xl border border-purple-800 bg-gray-900 p-7 shadow-2xl">
+
+      <!-- Header -->
+      <div class="text-center mb-6">
+        <div class="text-4xl mb-3">🚀</div>
+        <h2 class="text-2xl font-bold text-white mb-2">Limite raggiunto</h2>
+        <p class="text-gray-400 text-sm leading-relaxed">
+          Hai usato i tuoi <strong class="text-white">3 documenti gratuiti</strong> di questo mese.<br>
+          Passa a Pro per generarne illimitati.
+        </p>
+      </div>
+
+      <!-- Free vs Pro -->
+      <div class="grid grid-cols-2 gap-3 mb-6">
+        <!-- Free -->
+        <div class="rounded-xl border border-gray-700 bg-gray-800 p-4">
+          <div class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">Free</div>
+          <ul class="space-y-2 text-sm">
+            <li class="flex items-center gap-2 text-gray-400"><span class="text-green-400">✓</span> 3 doc/mese</li>
+            <li class="flex items-center gap-2 text-gray-400"><span class="text-green-400">✓</span> PDF + HTML</li>
+            <li class="flex items-center gap-2 text-gray-400"><span class="text-green-400">✓</span> Link condivisibile</li>
+            <li class="flex items-center gap-2 text-gray-500"><span class="text-gray-600">✗</span> Senza watermark</li>
+            <li class="flex items-center gap-2 text-gray-500"><span class="text-gray-600">✗</span> Storico documenti</li>
+          </ul>
+          <div class="mt-4 text-2xl font-bold text-gray-400">€0</div>
+        </div>
+        <!-- Pro -->
+        <div class="rounded-xl border border-purple-600 bg-gray-800 p-4 relative">
+          <div class="absolute -top-2.5 left-1/2 -translate-x-1/2">
+            <span class="text-white text-xs font-bold px-2.5 py-0.5 rounded-full"
+                  style="background:#7C3AED;">PRESTO</span>
+          </div>
+          <div class="text-purple-400 text-xs font-semibold uppercase tracking-wide mb-3">Pro</div>
+          <ul class="space-y-2 text-sm">
+            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> Illimitati</li>
+            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> PDF + HTML</li>
+            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> Link condivisibile</li>
+            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> Senza watermark</li>
+            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> Storico documenti</li>
+          </ul>
+          <div class="mt-4 text-2xl font-bold text-white">€19<span class="text-sm text-gray-400 font-normal">/mese</span></div>
+        </div>
+      </div>
+
+      <!-- Waitlist form -->
+      <div id="waitlistForm">
+        <p class="text-gray-400 text-xs text-center mb-3">
+          Pro non è ancora disponibile. Entra in lista d'attesa — ti avvisiamo per primi.
+        </p>
+        <div class="flex gap-2">
+          <input
+            id="waitlistEmailInput"
+            type="email"
+            placeholder="tua@email.com"
+            class="flex-1 rounded-xl border border-gray-600 bg-gray-800
+                   text-gray-100 placeholder-gray-500 text-sm px-3 py-2.5
+                   transition-shadow duration-200"
+          />
+          <button
+            onclick="inviaWaitlist()"
+            class="px-4 py-2.5 rounded-xl text-white font-semibold text-sm
+                   transition-opacity hover:opacity-90 active:opacity-75"
+            style="background-color:#7C3AED;">
+            Unisciti
+          </button>
+        </div>
+        <p id="waitlistError" class="hidden text-red-400 text-xs mt-1.5"></p>
+      </div>
+
+      <!-- Successo waitlist -->
+      <div id="waitlistSuccess" class="hidden text-center py-2">
+        <p class="font-semibold" style="color:#4ade80;">✓ Sei nella lista d'attesa!</p>
+        <p class="text-gray-500 text-xs mt-1">Ti avvisiamo non appena Pro è disponibile.</p>
+      </div>
+
+      <!-- Chiudi -->
+      <button
+        onclick="chiudiUpgradeModal()"
+        class="mt-5 w-full py-2.5 rounded-xl text-gray-400 text-sm border border-gray-700
+               hover:border-gray-500 hover:text-gray-300 transition-colors duration-150">
+        Torna a BriefToDeal
+      </button>
+    </div>
+  </div>
+  <!-- ─────────────────────────────────────────────────────────────────────── -->
+
   <div class="w-full max-w-2xl flex flex-col items-center gap-6">
 
     <!-- Logo -->
@@ -138,6 +232,12 @@
       style="background-color: #7C3AED;">
       Genera Documento
     </button>
+
+    <!-- Quota counter -->
+    <p id="quotaCounter" class="hidden text-center text-sm -mt-2">
+      <span id="quotaRemaining" class="font-semibold"></span>
+      <span id="quotaLabel" class="text-gray-500"> documenti gratuiti rimasti questo mese</span>
+    </p>
 
     <!-- Card risultato -->
     <div id="resultCard"
@@ -283,10 +383,18 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ brief, tipo_documento: tipoSelezionato }),
         });
+        if (response.status === 429) {
+          const err = await response.json().catch(() => ({}));
+          if (err.upgrade) { mostraModalUpgrade(); return; }
+          throw new Error(err.error || 'Limite raggiunto.');
+        }
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
           throw new Error(err.error || `Errore HTTP ${response.status}`);
         }
+
+        const remaining = response.headers.get('X-Remaining');
+        if (remaining !== null) aggiornaQuotaCounter(parseInt(remaining, 10));
 
         const docId      = response.headers.get('X-Doc-Id');
         const shareUrl   = response.headers.get('X-Share-Url');
@@ -477,6 +585,16 @@
       if (e.key === 'Enter') submitEmail();
     });
 
+    // Chiudi upgrade modal cliccando sfondo
+    document.getElementById('upgradeModalOverlay').addEventListener('click', function(e) {
+      if (e.target === this) chiudiUpgradeModal();
+    });
+
+    // Enter nel campo waitlist
+    document.getElementById('waitlistEmailInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') inviaWaitlist();
+    });
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     function _triggerDownload(blob, filename) {
       const url = URL.createObjectURL(blob);
@@ -486,6 +604,73 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    }
+
+    // ── Quota counter ─────────────────────────────────────────────────────────
+    function aggiornaQuotaCounter(remaining) {
+      const counter = document.getElementById('quotaCounter');
+      const span    = document.getElementById('quotaRemaining');
+      span.textContent = remaining;
+      counter.classList.remove('hidden');
+      if (remaining === 0) {
+        counter.style.color = '#EF4444';   // rosso
+        document.getElementById('quotaLabel').textContent = ' documenti gratuiti rimasti — passa a Pro';
+      } else if (remaining === 1) {
+        counter.style.color = '#F59E0B';   // ambra
+        document.getElementById('quotaLabel').textContent = ' documento gratuito rimasto questo mese';
+      } else {
+        counter.style.color = '#6B7280';   // grigio
+        document.getElementById('quotaLabel').textContent = ' documenti gratuiti rimasti questo mese';
+      }
+    }
+
+    // ── Modal upgrade Pro ─────────────────────────────────────────────────────
+    function mostraModalUpgrade() {
+      const waitlistInput = document.getElementById('waitlistEmailInput');
+      waitlistInput.value = emailCaptured || '';
+      document.getElementById('waitlistError').classList.add('hidden');
+      document.getElementById('waitlistForm').classList.remove('hidden');
+      document.getElementById('waitlistSuccess').classList.add('hidden');
+      const overlay = document.getElementById('upgradeModalOverlay');
+      overlay.classList.remove('hidden');
+      // Re-trigger animation
+      const box = document.getElementById('upgradeModalBox');
+      box.style.animation = 'none';
+      void box.offsetWidth;
+      box.style.animation = '';
+    }
+
+    function chiudiUpgradeModal() {
+      document.getElementById('upgradeModalOverlay').classList.add('hidden');
+    }
+
+    async function inviaWaitlist() {
+      const input = document.getElementById('waitlistEmailInput');
+      const email = input.value.trim();
+      const errEl = document.getElementById('waitlistError');
+
+      errEl.classList.add('hidden');
+      if (!email || !email.includes('@')) {
+        errEl.textContent = 'Inserisci un indirizzo email valido.';
+        errEl.classList.remove('hidden');
+        input.focus();
+        return;
+      }
+
+      try {
+        await fetch(BACKEND_URL + '/api/waitlist', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ email }),
+        });
+      } catch (_) { /* fail silently */ }
+
+      // Salva anche in sessione come email catturata
+      emailCaptured = email;
+      sessionStorage.setItem('btd_email', email);
+
+      document.getElementById('waitlistForm').classList.add('hidden');
+      document.getElementById('waitlistSuccess').classList.remove('hidden');
     }
 
     function mostraErrore(msg) {

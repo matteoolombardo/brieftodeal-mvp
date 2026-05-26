@@ -1,9 +1,11 @@
 """
 models.py — BriefToDeal database models.
 
-Due tabelle:
-  Document    → ogni documento generato (brief, JSON estratto, PDF, HTML)
-  SharedLink  → link pubblico per condivisione con watermark
+Tabelle:
+  Document      → ogni documento generato (brief, JSON estratto, PDF, HTML)
+  SharedLink    → link pubblico per condivisione con watermark
+  UsageQuota    → contatore mensile per IP anonimo (Free tier limit)
+  WaitlistEntry → email lista d'attesa piano Pro
 """
 
 import secrets
@@ -95,3 +97,28 @@ class SharedLink(db.Model):
 
     def __repr__(self):
         return f'<SharedLink {self.token} doc={self.document_id[:8]}>'
+
+
+class UsageQuota(db.Model):
+    """Contatore documenti generati per IP anonimo, per mese."""
+    __tablename__ = 'usage_quotas'
+
+    # Chiave composta: hash IP + mese (es. '2026-05')
+    ip_hash = db.Column(db.String(64), primary_key=True)
+    month   = db.Column(db.String(7),  primary_key=True)   # 'YYYY-MM'
+    count   = db.Column(db.Integer, default=0, nullable=False)
+
+    def __repr__(self):
+        return f'<UsageQuota {self.ip_hash[:8]} {self.month} count={self.count}>'
+
+
+class WaitlistEntry(db.Model):
+    """Email registrata per la lista d'attesa piano Pro."""
+    __tablename__ = 'waitlist'
+
+    id         = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    email      = db.Column(db.String(255), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f'<WaitlistEntry {self.email}>'

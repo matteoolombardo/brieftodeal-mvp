@@ -28,7 +28,7 @@ from flask_cors import CORS
 
 from generate_html import genera_html
 from generate_pdf import genera_pdf
-from models import Document, SharedLink, db
+from models import Document, SharedLink, UsageQuota, WaitlistEntry, db
 
 # ── Configurazione ─────────────────────────────────────────────────────────────
 load_dotenv()
@@ -52,7 +52,11 @@ db.init_app(app)
 CORS(app,
      origins=ALLOWED_ORIGIN,
      expose_headers=['X-Doc-Id', 'X-Share-Token', 'X-Share-Url',
-                     'X-Cache', 'X-Html-Url', 'Content-Disposition'])
+                     'X-Cache', 'X-Html-Url', 'X-Remaining',
+                     'X-Quota-Limit', 'Content-Disposition'])
+
+# ── Piano Free ─────────────────────────────────────────────────────────────────
+FREE_LIMIT = 3   # documenti gratuiti al mese per IP
 
 with app.app_context():
     db.create_all()
@@ -88,6 +92,39 @@ def _parse_json_claude(raw: str) -> dict:
     """Rimuove eventuali backtick markdown e fa il parse JSON."""
     clean = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw, flags=re.DOTALL).strip()
     return json.loads(clean)
+
+
+def _get_ip_hash(req) -> str:
+    """SHA-256 dell'IP del client — privacy-safe, non reversibile."""
+    ip = req.headers.get('X-Forwarded-For', req.remote_addr or '')
+    ip = ip.split(',')[0].strip()
+    return hashlib.sha256(ip.encode()).hexdigest()
+
+
+def _quota_check_and_increment(ip_hash: str) -> tuple:
+    """
+    Verifica la quota mensile e incrementa il contatore se consentito.
+    Returns: (allowed: bool, remaining: int, count_after: int)
+    """
+    month = datetime.utcnow().strftime('%Y-%m')
+    try:
+        quota = db.session.get(UsageQuota, (ip_hash, month))
+        if quota is None:
+            quota = UsageQuota(ip_hash=ip_hash, month=month, count=0)
+            db.session.add(quota)
+
+        if quota.count >= FREE_LIMIT:
+            db.session.rollback()
+            return False, 0, quota.count
+
+        quota.count += 1
+        db.session.commit()
+        remaining = FREE_LIMIT - quota.count
+        return True, remaining, quota.count
+    except Exception as e:
+        app.logger.error(f'Quota check error: {e}')
+        db.session.rollback()
+        return True, FREE_LIMIT, 0   # fail-open: non bloccare se DB è giù
 
 
 # ── Template pagina pubblica /p/<token> ────────────────────────────────────────
@@ -207,7 +244,17 @@ def genera():
     if tipo_documento not in ('contratto', 'preventivo', 'onboarding'):
         return jsonify({'error': f'tipo_documento non valido: {tipo_documento}'}), 400
 
-    # ── 1. Hash brief ─────────────────────────────────────────────────────────
+    # ── 1. Quota check (Free tier) ────────────────────────────────────────────
+    ip_hash = _get_ip_hash(request)
+    allowed, remaining, _ = _quota_check_and_increment(ip_hash)
+    if not allowed:
+        return jsonify({
+            'error':   f'Hai raggiunto il limite di {FREE_LIMIT} documenti gratuiti questo mese.',
+            'upgrade': True,
+            'limit':   FREE_LIMIT,
+        }), 429
+
+    # ── 2. Hash brief ─────────────────────────────────────────────────────────
     brief_hash = _hash_brief(brief)
 
     # ── 2. Cache hit? Cerca nel DB per hash + tipo ────────────────────────────
@@ -241,6 +288,8 @@ def genera():
             download_name=filename,
         )
         response.headers['X-Cache']        = 'HIT'
+        response.headers['X-Remaining']    = str(remaining)
+        response.headers['X-Quota-Limit']  = str(FREE_LIMIT)
         response.headers['X-Doc-Id']       = cached_doc.id
         if link:
             response.headers['X-Share-Token'] = link.token
@@ -317,7 +366,9 @@ def genera():
         as_attachment=True,
         download_name=filename,
     )
-    response.headers['X-Cache'] = 'MISS'
+    response.headers['X-Cache']       = 'MISS'
+    response.headers['X-Remaining']   = str(remaining)
+    response.headers['X-Quota-Limit'] = str(FREE_LIMIT)
     if doc and link:
         response.headers['X-Doc-Id']      = doc.id
         response.headers['X-Share-Token'] = link.token
@@ -420,6 +471,32 @@ def salva_email():
         return jsonify({'error': 'Errore salvataggio'}), 500
 
     return jsonify({'ok': True})
+
+
+@app.route('/api/waitlist', methods=['POST'])
+def waitlist():
+    """Aggiunge un'email alla lista d'attesa piano Pro."""
+    body  = request.get_json(silent=True) or {}
+    email = (body.get('email') or '').strip().lower()
+
+    if not email or '@' not in email or '.' not in email.split('@')[-1]:
+        return jsonify({'error': 'Email non valida'}), 400
+
+    # Già presente → ok idempotente
+    existing = WaitlistEntry.query.filter_by(email=email).first()
+    if existing:
+        return jsonify({'ok': True, 'already': True})
+
+    entry = WaitlistEntry(email=email)
+    db.session.add(entry)
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f'Waitlist save error: {e}')
+        return jsonify({'error': 'Errore salvataggio'}), 500
+
+    return jsonify({'ok': True}), 201
 
 
 if __name__ == '__main__':
