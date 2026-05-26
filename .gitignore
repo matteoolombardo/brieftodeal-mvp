@@ -23,3 +23,24 @@ Thumbs.db
 # Editor
 .vscode/
 *.swp
+
+# SQLite DB locale
+instance/
+*.db
+*.db-shm
+*.db-wal
+
+# Log server
+server_stdout.txt
+server_stderr.txt
+
+# ClaudeOS (non parte del progetto BriefToDeal)
+.claude/
+PROJECTS/
+PROMPTS/
+SCRIPTS/
+SKILLS/
+TEMPLATES/
+_CORE/
+_KNOWLEDGE/
+_MEMORY/
