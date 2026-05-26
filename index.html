@@ -207,6 +207,23 @@
           </svg>
           Scarica PDF
         </button>
+
+        <!-- Anteprima HTML -->
+        <button id="previewBtn"
+          class="hidden flex-1 flex items-center justify-center gap-2 py-2.5 px-4
+                 rounded-xl font-semibold text-sm text-gray-300 border border-gray-600
+                 hover:border-gray-400 transition-colors duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943
+                 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477
+                 0-8.268-2.943-9.542-7z"/>
+          </svg>
+          Anteprima
+        </button>
       </div>
     </div>
 
@@ -227,6 +244,7 @@
     let ultimoPdfBlob   = null;
     let ultimoFilename  = 'documento.pdf';
     let ultimoDocId     = '';
+    let ultimoHtmlUrl   = '';
 
     // Email già catturata in questa sessione?
     // sessionStorage → persiste fino a chiusura tab, non tra sessioni
@@ -273,6 +291,8 @@
         const docId      = response.headers.get('X-Doc-Id');
         const shareUrl   = response.headers.get('X-Share-Url');
         const cacheHit   = response.headers.get('X-Cache') === 'HIT';
+        const htmlUrl    = response.headers.get('X-Html-Url') || '';
+        ultimoHtmlUrl    = htmlUrl;
         const disposition = response.headers.get('Content-Disposition') || '';
         const match       = disposition.match(/filename="?([^";\n]+)"?/);
         ultimoFilename    = match ? match[1] : `${tipoSelezionato}.pdf`;
@@ -285,7 +305,7 @@
 
         if (docId) {
           const meta = await fetch(BACKEND_URL + '/api/doc/' + docId).then(r => r.json());
-          mostraCard(meta, shareUrl, cacheHit);
+          mostraCard(meta, shareUrl, cacheHit, htmlUrl);
         }
       } catch (e) {
         mostraErrore(e.message || 'Errore sconosciuto.');
@@ -296,7 +316,7 @@
     }
 
     // ── Card risultato ────────────────────────────────────────────────────────
-    function mostraCard(meta, shareUrl, cacheHit) {
+    function mostraCard(meta, shareUrl, cacheHit, htmlUrl) {
       const LABEL = { contratto: 'Contratto', preventivo: 'Preventivo', onboarding: 'Onboarding' };
       document.getElementById('cardTipoLabel').textContent = LABEL[meta.tipo_documento] || meta.tipo_documento;
       document.getElementById('cardCreatedAt').textContent = meta.created_at || '';
@@ -324,7 +344,15 @@
         ? `EUR ${importo.toLocaleString('it-IT', {minimumFractionDigits:2})}`
         : '—';
       document.getElementById('cardTotale').textContent = meta.totale || '—';
-      document.getElementById('copyBtn').style.display  = shareUrl ? '' : 'none';
+      document.getElementById('copyBtn').style.display = shareUrl ? '' : 'none';
+
+      const previewBtn = document.getElementById('previewBtn');
+      if (htmlUrl) {
+        previewBtn.classList.remove('hidden');
+        previewBtn.onclick = () => window.open(htmlUrl, '_blank');
+      } else {
+        previewBtn.classList.add('hidden');
+      }
 
       const card = document.getElementById('resultCard');
       card.classList.remove('hidden');

@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template_string, request, send_file
 from flask_cors import CORS
 
+from generate_html import genera_html
 from generate_pdf import genera_pdf
 from models import Document, SharedLink, db
 
@@ -50,7 +51,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS']      = {'pool_pre_ping': True}
 db.init_app(app)
 CORS(app,
      origins=ALLOWED_ORIGIN,
-     expose_headers=['X-Doc-Id', 'X-Share-Token', 'X-Share-Url', 'X-Cache', 'Content-Disposition'])
+     expose_headers=['X-Doc-Id', 'X-Share-Token', 'X-Share-Url',
+                     'X-Cache', 'X-Html-Url', 'Content-Disposition'])
 
 with app.app_context():
     db.create_all()
@@ -243,6 +245,8 @@ def genera():
         if link:
             response.headers['X-Share-Token'] = link.token
             response.headers['X-Share-Url']   = link.share_url(BASE_URL)
+        if cached_doc.html_summary:
+            response.headers['X-Html-Url'] = f"{BASE_URL}/doc/{cached_doc.id}/view"
         return response
 
     # Cache MISS — procedi con Claude
@@ -273,7 +277,14 @@ def genera():
     except Exception as e:
         return jsonify({'error': f'Errore generazione PDF: {e}'}), 500
 
-    # ── 6. Salva Document nel DB ──────────────────────────────────────────────
+    # ── 6. Genera HTML mobile ─────────────────────────────────────────────────
+    try:
+        html_summary = genera_html(dati, tipo_documento=tipo_documento)
+    except Exception as e:
+        app.logger.warning(f'HTML generation failed (non-critical): {e}')
+        html_summary = None
+
+    # ── 7. Salva Document nel DB ──────────────────────────────────────────────
     try:
         import uuid as _uuid
         doc_id = str(_uuid.uuid4())
@@ -284,6 +295,7 @@ def genera():
             extracted_json = dati,
             tipo_documento = tipo_documento,
             pdf_blob       = pdf_bytes_data,
+            html_summary   = html_summary,
         )
         db.session.add(doc)
 
@@ -297,7 +309,7 @@ def genera():
         doc  = None
         link = None
 
-    # ── 7. Risposta PDF + headers ─────────────────────────────────────────────
+    # ── 8. Risposta PDF + headers ─────────────────────────────────────────────
     filename = f"{tipo_documento}_{dati['nome_cliente'].replace(' ', '_')}.pdf"
     response = send_file(
         io.BytesIO(pdf_bytes_data),
@@ -310,6 +322,7 @@ def genera():
         response.headers['X-Doc-Id']      = doc.id
         response.headers['X-Share-Token'] = link.token
         response.headers['X-Share-Url']   = link.share_url(BASE_URL)
+        response.headers['X-Html-Url']    = f"{BASE_URL}/doc/{doc.id}/view"
     return response
 
 
@@ -367,6 +380,20 @@ def api_documento(doc_id: str):
         for l in doc.shared_links
     ]
     return jsonify(preview)
+
+
+@app.route('/doc/<doc_id>/view')
+def visualizza_html(doc_id: str):
+    """Serve la versione HTML mobile del documento."""
+    doc = Document.query.get_or_404(doc_id)
+    if not doc.html_summary:
+        # Genera al volo se non ancora salvato (retrocompatibilità)
+        try:
+            html = genera_html(doc.extracted_json or {}, doc.tipo_documento)
+        except Exception:
+            return jsonify({'error': 'HTML non disponibile'}), 404
+        return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+    return doc.html_summary, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 
 @app.route('/api/email', methods=['POST'])
