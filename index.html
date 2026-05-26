@@ -9,10 +9,7 @@
     tailwind.config = {
       theme: {
         extend: {
-          colors: {
-            brand: '#7C3AED',
-            bg: '#0D0D1A',
-          }
+          colors: { brand: '#7C3AED', bg: '#0D0D1A' }
         }
       }
     }
@@ -22,96 +19,144 @@
     textarea::placeholder { color: #6B7280; }
     textarea:focus { outline: none; box-shadow: 0 0 0 2px #7C3AED; }
 
-    /* Card slide-in */
     @keyframes slideUp {
       from { opacity: 0; transform: translateY(16px); }
       to   { opacity: 1; transform: translateY(0); }
     }
     .slide-up { animation: slideUp 0.3s ease-out both; }
 
-    /* Copy button feedback */
     .copy-btn.copied { background-color: #059669 !important; }
+
+    /* Modal */
+    @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes popIn   {
+      from { opacity: 0; transform: scale(0.93) translateY(12px); }
+      to   { opacity: 1; transform: scale(1)    translateY(0); }
+    }
+    #emailModalOverlay { animation: fadeIn 0.2s ease-out both; }
+    #emailModalBox     { animation: popIn  0.25s ease-out both; }
+
+    #emailInput:focus  { outline: none; box-shadow: 0 0 0 2px #7C3AED; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center px-4 py-12 font-sans">
 
+  <!-- ─── Modale email capture ────────────────────────────────────────────── -->
+  <div id="emailModalOverlay"
+       class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+       style="background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);">
+
+    <div id="emailModalBox"
+         class="w-full max-w-md rounded-2xl border border-gray-700 bg-gray-900 p-7 shadow-2xl">
+
+      <!-- Header modal -->
+      <div class="flex items-center gap-2 mb-5">
+        <span class="text-lg font-extrabold" style="color:#7C3AED;">BriefToDeal</span>
+      </div>
+
+      <h2 class="text-xl font-bold text-white mb-1">
+        Un passo prima di continuare
+      </h2>
+      <p class="text-gray-400 text-sm mb-6 leading-relaxed">
+        Inserisci la tua email per ricevere il link al documento
+        e rimanere aggiornato su BriefToDeal.
+      </p>
+
+      <!-- Form email -->
+      <div class="flex flex-col gap-3">
+        <input
+          id="emailInput"
+          type="email"
+          placeholder="tua@email.com"
+          autocomplete="email"
+          class="w-full rounded-xl border border-gray-600 bg-gray-800
+                 text-gray-100 placeholder-gray-500 text-sm px-4 py-3
+                 transition-shadow duration-200"
+        />
+        <p id="emailError" class="hidden text-red-400 text-xs -mt-1"></p>
+
+        <button
+          id="emailSubmitBtn"
+          onclick="submitEmail()"
+          class="w-full py-3 rounded-xl text-white font-semibold text-sm
+                 transition-opacity duration-150 hover:opacity-90 active:opacity-75
+                 disabled:opacity-50 disabled:cursor-not-allowed"
+          style="background-color:#7C3AED;">
+          Continua &rarr;
+        </button>
+      </div>
+
+      <!-- Skip -->
+      <div class="mt-4 text-center">
+        <button
+          onclick="skipEmail()"
+          class="text-gray-500 text-xs hover:text-gray-400 transition-colors duration-150
+                 underline underline-offset-2">
+          Salta per ora
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- ─────────────────────────────────────────────────────────────────────── -->
+
   <div class="w-full max-w-2xl flex flex-col items-center gap-6">
 
-    <!-- Logo / titolo -->
+    <!-- Logo -->
     <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight"
-        style="color: #7C3AED;">
-      BriefToDeal
-    </h1>
+        style="color: #7C3AED;">BriefToDeal</h1>
 
-    <!-- Sottotitolo -->
     <p class="text-gray-400 text-lg md:text-xl text-center">
       Dal brief al contratto in 10 secondi
     </p>
 
-    <!-- Selettore tipo documento -->
+    <!-- Selettore tipo -->
     <div class="flex w-full gap-3">
       <button onclick="selezionaTipo('contratto')"  id="btn-contratto"
         class="flex-1 py-3 rounded-xl font-semibold text-sm tracking-wide transition-all duration-150"
-        style="background-color:#7C3AED; color:#fff;">
-        Contratto
-      </button>
+        style="background-color:#7C3AED; color:#fff;">Contratto</button>
       <button onclick="selezionaTipo('preventivo')" id="btn-preventivo"
         class="flex-1 py-3 rounded-xl font-semibold text-sm tracking-wide transition-all duration-150"
-        style="background-color:#374151; color:#9CA3AF;">
-        Preventivo
-      </button>
+        style="background-color:#374151; color:#9CA3AF;">Preventivo</button>
       <button onclick="selezionaTipo('onboarding')" id="btn-onboarding"
         class="flex-1 py-3 rounded-xl font-semibold text-sm tracking-wide transition-all duration-150"
-        style="background-color:#374151; color:#9CA3AF;">
-        Onboarding
-      </button>
+        style="background-color:#374151; color:#9CA3AF;">Onboarding</button>
     </div>
 
     <!-- Textarea -->
     <textarea
-      id="briefText"
-      rows="10"
+      id="briefText" rows="10"
       placeholder="Incolla qui il brief del tuo cliente..."
       class="w-full rounded-2xl border border-gray-700 bg-gray-900 text-gray-100
-             text-base md:text-lg p-5 resize-none leading-relaxed
-             transition-shadow duration-200"
+             text-base md:text-lg p-5 resize-none leading-relaxed transition-shadow duration-200"
     ></textarea>
 
-    <!-- Bottone -->
-    <button
-      id="generateBtn"
-      onclick="generaDocumento()"
+    <!-- Bottone genera -->
+    <button id="generateBtn" onclick="generaDocumento()"
       class="w-full md:w-auto px-10 py-4 rounded-2xl text-white font-bold
-             text-lg tracking-wide transition-opacity duration-200 hover:opacity-90 active:opacity-75
-             disabled:opacity-50 disabled:cursor-not-allowed"
+             text-lg tracking-wide transition-opacity duration-200 hover:opacity-90
+             active:opacity-75 disabled:opacity-50 disabled:cursor-not-allowed"
       style="background-color: #7C3AED;">
       Genera Documento
     </button>
 
-    <!-- Card risultato (nascosta inizialmente) -->
-    <div id="resultCard" class="hidden slide-up w-full rounded-2xl border border-gray-700
-                                 bg-gray-900 overflow-hidden">
+    <!-- Card risultato -->
+    <div id="resultCard"
+         class="hidden slide-up w-full rounded-2xl border border-gray-700 bg-gray-900 overflow-hidden">
 
-      <!-- Card header -->
       <div class="flex items-center justify-between px-5 py-3 border-b border-gray-700">
         <div class="flex items-center gap-2">
           <span id="cardTipoLabel"
             class="text-xs font-semibold px-2.5 py-1 rounded-full"
-            style="background:#2D1B69; color:#A78BFA;">
-            Contratto
-          </span>
+            style="background:#2D1B69; color:#A78BFA;">Contratto</span>
           <span id="cardCacheBadge"
-            class="text-xs font-semibold px-2.5 py-1 rounded-full hidden">
-          </span>
+            class="text-xs font-semibold px-2.5 py-1 rounded-full hidden"></span>
         </div>
         <span id="cardCreatedAt" class="text-gray-500 text-xs"></span>
       </div>
 
-      <!-- Dati documento -->
       <div class="px-5 py-4">
         <h2 id="cardCliente" class="text-xl font-bold text-white mb-0.5"></h2>
         <p  id="cardAzienda"  class="text-gray-400 text-sm mb-4"></p>
-
         <div class="divide-y divide-gray-800">
           <div class="flex justify-between py-2.5">
             <span class="text-gray-400 text-sm">Servizio</span>
@@ -136,12 +181,8 @@
         </div>
       </div>
 
-      <!-- Azioni -->
       <div class="px-5 pb-5 flex flex-col sm:flex-row gap-3">
-
-        <!-- Copia link condivisibile -->
-        <button id="copyBtn"
-          onclick="copiaLink()"
+        <button id="copyBtn" onclick="copiaLink()"
           class="copy-btn flex-1 flex items-center justify-center gap-2 py-2.5 px-4
                  rounded-xl font-semibold text-sm text-white transition-colors duration-200"
           style="background-color:#7C3AED;">
@@ -155,33 +196,29 @@
           <span id="copyBtnText">Copia link condivisibile</span>
         </button>
 
-        <!-- Scarica PDF di nuovo -->
-        <button id="redownloadBtn"
-          onclick="riscaricaPdf()"
+        <button id="redownloadBtn" onclick="riscaricaPdf()"
           class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4
                  rounded-xl font-semibold text-sm text-gray-300 border border-gray-600
                  hover:border-gray-400 transition-colors duration-200">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round"
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0
-                 0l-4-4m4 4V4"/>
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
           </svg>
           Scarica PDF
         </button>
-
       </div>
     </div>
 
     <!-- Errore -->
-    <div id="errore" class="hidden w-full rounded-2xl border border-red-700 bg-red-950
-                             text-red-400 text-sm p-4"></div>
+    <div id="errore"
+         class="hidden w-full rounded-2xl border border-red-700 bg-red-950
+                text-red-400 text-sm p-4"></div>
 
   </div>
 
   <script>
     // ── Config ────────────────────────────────────────────────────────────────
-    // Locale: '' (URL relativo)  |  Produzione: URL Railway completo
     const BACKEND_URL = 'https://web-production-1bf5d.up.railway.app';
 
     // ── Stato ─────────────────────────────────────────────────────────────────
@@ -189,32 +226,34 @@
     let ultimoShareUrl  = '';
     let ultimoPdfBlob   = null;
     let ultimoFilename  = 'documento.pdf';
+    let ultimoDocId     = '';
+
+    // Email già catturata in questa sessione?
+    // sessionStorage → persiste fino a chiusura tab, non tra sessioni
+    let emailCaptured = sessionStorage.getItem('btd_email') || '';
+
+    // Azione pendente mentre il modal è aperto: 'copy' | 'download'
+    let pendingAction = null;
 
     // ── Selettore tipo ────────────────────────────────────────────────────────
     function selezionaTipo(tipo) {
       tipoSelezionato = tipo;
       ['contratto', 'preventivo', 'onboarding'].forEach(t => {
         const b = document.getElementById('btn-' + t);
-        if (t === tipo) {
-          b.style.backgroundColor = '#7C3AED';
-          b.style.color = '#fff';
-        } else {
-          b.style.backgroundColor = '#374151';
-          b.style.color = '#9CA3AF';
-        }
+        b.style.backgroundColor = t === tipo ? '#7C3AED' : '#374151';
+        b.style.color           = t === tipo ? '#fff'    : '#9CA3AF';
       });
     }
 
     // ── Genera documento ──────────────────────────────────────────────────────
     async function generaDocumento() {
-      const brief = document.getElementById('briefText').value.trim();
-      const btn   = document.getElementById('generateBtn');
-      const card  = document.getElementById('resultCard');
+      const brief     = document.getElementById('briefText').value.trim();
+      const btn       = document.getElementById('generateBtn');
+      const card      = document.getElementById('resultCard');
       const erroreDiv = document.getElementById('errore');
 
       card.classList.add('hidden');
       erroreDiv.classList.add('hidden');
-
       if (!brief) return mostraErrore('Il brief è vuoto. Incolla il testo del cliente.');
 
       btn.disabled    = true;
@@ -226,33 +265,28 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ brief, tipo_documento: tipoSelezionato }),
         });
-
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
           throw new Error(err.error || `Errore HTTP ${response.status}`);
         }
 
-        // Leggi headers PRIMA di consumare il body
         const docId      = response.headers.get('X-Doc-Id');
         const shareUrl   = response.headers.get('X-Share-Url');
         const cacheHit   = response.headers.get('X-Cache') === 'HIT';
         const disposition = response.headers.get('Content-Disposition') || '';
         const match       = disposition.match(/filename="?([^";\n]+)"?/);
         ultimoFilename    = match ? match[1] : `${tipoSelezionato}.pdf`;
+        ultimoDocId       = docId  || '';
+        ultimoShareUrl    = shareUrl || '';
+        ultimoPdfBlob     = await response.blob();
 
-        // Salva blob per ri-download
-        ultimoPdfBlob  = await response.blob();
-        ultimoShareUrl = shareUrl || '';
-
-        // Scarica PDF automaticamente
+        // Prima generazione: scarica automaticamente (no modal)
         _triggerDownload(ultimoPdfBlob, ultimoFilename);
 
-        // Popola card con metadati da /api/doc/<id>
         if (docId) {
           const meta = await fetch(BACKEND_URL + '/api/doc/' + docId).then(r => r.json());
           mostraCard(meta, shareUrl, cacheHit);
         }
-
       } catch (e) {
         mostraErrore(e.message || 'Errore sconosciuto.');
       } finally {
@@ -261,29 +295,24 @@
       }
     }
 
-    // ── Popola e mostra la card risultato ─────────────────────────────────────
+    // ── Card risultato ────────────────────────────────────────────────────────
     function mostraCard(meta, shareUrl, cacheHit) {
-      const TIPO_LABEL = { contratto: 'Contratto', preventivo: 'Preventivo', onboarding: 'Onboarding' };
-
-      // Header
-      document.getElementById('cardTipoLabel').textContent = TIPO_LABEL[meta.tipo_documento] || meta.tipo_documento;
+      const LABEL = { contratto: 'Contratto', preventivo: 'Preventivo', onboarding: 'Onboarding' };
+      document.getElementById('cardTipoLabel').textContent = LABEL[meta.tipo_documento] || meta.tipo_documento;
       document.getElementById('cardCreatedAt').textContent = meta.created_at || '';
 
-      // Cache badge
       const badge = document.getElementById('cardCacheBadge');
       if (cacheHit) {
-        badge.textContent = '⚡ Da cache';
+        badge.textContent      = '⚡ Da cache';
         badge.style.background = '#052e16';
         badge.style.color      = '#4ade80';
-        badge.classList.remove('hidden');
       } else {
-        badge.textContent = '✨ Nuovo';
+        badge.textContent      = '✨ Nuovo';
         badge.style.background = '#2D1B69';
         badge.style.color      = '#A78BFA';
-        badge.classList.remove('hidden');
       }
+      badge.classList.remove('hidden');
 
-      // Dati
       document.getElementById('cardCliente').textContent  = meta.nome_cliente  || '—';
       document.getElementById('cardAzienda').textContent  = meta.azienda        || '—';
       document.getElementById('cardServizio').textContent = meta.tipo_servizio  || '—';
@@ -291,35 +320,38 @@
       document.getElementById('cardInizio').textContent   = meta.data_inizio    || '—';
 
       const importo = parseFloat(meta.importo_mensile) || 0;
-      document.getElementById('cardImporto').textContent  = importo ? `EUR ${importo.toLocaleString('it-IT', {minimumFractionDigits:2})}` : '—';
-      document.getElementById('cardTotale').textContent   = meta.totale         || '—';
+      document.getElementById('cardImporto').textContent = importo
+        ? `EUR ${importo.toLocaleString('it-IT', {minimumFractionDigits:2})}`
+        : '—';
+      document.getElementById('cardTotale').textContent = meta.totale || '—';
+      document.getElementById('copyBtn').style.display  = shareUrl ? '' : 'none';
 
-      // Bottone copia: mostralo solo se c'è un link
-      document.getElementById('copyBtn').style.display = shareUrl ? '' : 'none';
-
-      // Slide-in
       const card = document.getElementById('resultCard');
       card.classList.remove('hidden');
-      // Re-trigger animation
       card.classList.remove('slide-up');
       void card.offsetWidth;
       card.classList.add('slide-up');
     }
 
-    // ── Copia link negli appunti ──────────────────────────────────────────────
-    async function copiaLink() {
+    // ── Copia link (con gate email) ───────────────────────────────────────────
+    function copiaLink() {
       if (!ultimoShareUrl) return;
-      try {
-        await navigator.clipboard.writeText(ultimoShareUrl);
-      } catch {
-        // fallback per browser senza clipboard API
+      if (!emailCaptured) {
+        mostraModalEmail('copy');
+      } else {
+        _eseguiCopia();
+      }
+    }
+
+    function _eseguiCopia() {
+      navigator.clipboard.writeText(ultimoShareUrl).catch(() => {
         const el = document.createElement('textarea');
         el.value = ultimoShareUrl;
         document.body.appendChild(el);
         el.select();
         document.execCommand('copy');
         document.body.removeChild(el);
-      }
+      });
       const btn  = document.getElementById('copyBtn');
       const text = document.getElementById('copyBtnText');
       btn.classList.add('copied');
@@ -331,25 +363,103 @@
       }, 2000);
     }
 
-    // ── Ri-scarica PDF già generato ───────────────────────────────────────────
+    // ── Ri-scarica PDF (con gate email) ───────────────────────────────────────
     function riscaricaPdf() {
       if (!ultimoPdfBlob) return;
-      _triggerDownload(ultimoPdfBlob, ultimoFilename);
+      if (!emailCaptured) {
+        mostraModalEmail('download');
+      } else {
+        _triggerDownload(ultimoPdfBlob, ultimoFilename);
+      }
     }
 
-    // ── Helper download blob ──────────────────────────────────────────────────
+    // ── Modal email ───────────────────────────────────────────────────────────
+    function mostraModalEmail(action) {
+      pendingAction = action;
+      document.getElementById('emailInput').value = '';
+      document.getElementById('emailError').classList.add('hidden');
+      document.getElementById('emailModalOverlay').classList.remove('hidden');
+      // Re-trigger animations
+      const box = document.getElementById('emailModalBox');
+      box.style.animation = 'none';
+      void box.offsetWidth;
+      box.style.animation = '';
+      setTimeout(() => document.getElementById('emailInput').focus(), 50);
+    }
+
+    function chiudiModal() {
+      document.getElementById('emailModalOverlay').classList.add('hidden');
+      pendingAction = null;
+    }
+
+    async function submitEmail() {
+      const input = document.getElementById('emailInput');
+      const email = input.value.trim();
+      const errEl = document.getElementById('emailError');
+      const btn   = document.getElementById('emailSubmitBtn');
+
+      errEl.classList.add('hidden');
+
+      if (!email || !email.includes('@')) {
+        errEl.textContent = 'Inserisci un indirizzo email valido.';
+        errEl.classList.remove('hidden');
+        input.focus();
+        return;
+      }
+
+      btn.disabled    = true;
+      btn.textContent = 'Salvataggio…';
+
+      try {
+        if (ultimoDocId) {
+          await fetch(BACKEND_URL + '/api/email', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ doc_id: ultimoDocId, email }),
+          });
+        }
+      } catch (_) { /* non bloccante */ }
+
+      // Salva in sessione e chiudi
+      emailCaptured = email;
+      sessionStorage.setItem('btd_email', email);
+
+      const action = pendingAction;
+      chiudiModal();
+
+      // Esegui l'azione originale
+      if (action === 'copy')     _eseguiCopia();
+      if (action === 'download') _triggerDownload(ultimoPdfBlob, ultimoFilename);
+    }
+
+    function skipEmail() {
+      const action = pendingAction;
+      chiudiModal();
+      if (action === 'copy')     _eseguiCopia();
+      if (action === 'download') _triggerDownload(ultimoPdfBlob, ultimoFilename);
+    }
+
+    // Chiudi cliccando lo sfondo
+    document.getElementById('emailModalOverlay').addEventListener('click', function(e) {
+      if (e.target === this) skipEmail();
+    });
+
+    // Enter nel campo email
+    document.getElementById('emailInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') submitEmail();
+    });
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
     function _triggerDownload(blob, filename) {
       const url = URL.createObjectURL(blob);
       const a   = document.createElement('a');
-      a.href     = url;
-      a.download = filename;
+      a.href = url; a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
 
-    // ── Mostra errore ─────────────────────────────────────────────────────────
     function mostraErrore(msg) {
       const d = document.getElementById('errore');
       d.textContent = msg;

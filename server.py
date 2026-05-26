@@ -369,6 +369,32 @@ def api_documento(doc_id: str):
     return jsonify(preview)
 
 
+@app.route('/api/email', methods=['POST'])
+def salva_email():
+    """Salva l'email dell'utente sul documento (lead capture)."""
+    body   = request.get_json(silent=True) or {}
+    doc_id = (body.get('doc_id') or '').strip()
+    email  = (body.get('email')  or '').strip()
+
+    if not doc_id or not email:
+        return jsonify({'error': 'doc_id e email sono richiesti'}), 400
+
+    # Validazione email minima
+    if '@' not in email or '.' not in email.split('@')[-1]:
+        return jsonify({'error': 'Email non valida'}), 400
+
+    doc = Document.query.get_or_404(doc_id)
+    doc.user_email = email
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f'Email save error: {e}')
+        return jsonify({'error': 'Errore salvataggio'}), 500
+
+    return jsonify({'ok': True})
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     if not ANTHROPIC_API_KEY:
