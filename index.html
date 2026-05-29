@@ -3,304 +3,409 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BriefToDeal</title>
+  <title>BriefToDeal — AI Document Generator</title>
+
+  <!-- Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          colors: { brand: '#7C3AED', bg: '#0D0D1A' }
-        }
-      }
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
     }
   </script>
-  <style>
-    body { background-color: #0D0D1A; }
-    textarea::placeholder { color: #6B7280; }
-    textarea:focus { outline: none; box-shadow: 0 0 0 2px #7C3AED; }
 
+  <style>
+    /* ── CSS variables ───────────────────────────────────────────────────────── */
+    :root {
+      --bg:           #0F1117;
+      --surface:      #1A1D27;
+      --border:       #2A2D3A;
+      --accent:       #6366F1;
+      --accent-light: #818CF8;
+      --text:         #F5F5F5;
+      --muted:        #9CA3AF;
+      --dim:          #4B5563;
+    }
+
+    /* ── Base ────────────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 16px;
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ── Textarea ────────────────────────────────────────────────────────────── */
+    textarea::placeholder { color: var(--dim); }
+    textarea:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    /* ── Card slide-up ───────────────────────────────────────────────────────── */
     @keyframes slideUp {
-      from { opacity: 0; transform: translateY(16px); }
+      from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .slide-up { animation: slideUp 0.3s ease-out both; }
+    .slide-up { animation: slideUp 0.22s ease-out both; }
 
+    /* ── Copy button "copied" state ──────────────────────────────────────────── */
     .copy-btn.copied { background-color: #059669 !important; }
 
-    /* Modal */
-    @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes popIn   {
-      from { opacity: 0; transform: scale(0.93) translateY(12px); }
+    /* ── Modal animations ────────────────────────────────────────────────────── */
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes popIn  {
+      from { opacity: 0; transform: scale(0.95) translateY(8px); }
       to   { opacity: 1; transform: scale(1)    translateY(0); }
     }
-    #emailModalOverlay { animation: fadeIn 0.2s ease-out both; }
-    #emailModalBox     { animation: popIn  0.25s ease-out both; }
+    #emailModalOverlay { animation: fadeIn 0.15s ease-out both; }
+    #emailModalBox     { animation: popIn  0.2s  ease-out both; }
+    #upgradeModalBox   { animation: popIn  0.2s  ease-out both; }
 
-    #emailInput:focus       { outline: none; box-shadow: 0 0 0 2px #7C3AED; }
-    #upgradeModalBox        { animation: popIn 0.25s ease-out both; }
-    #waitlistEmailInput:focus { outline: none; box-shadow: 0 0 0 2px #7C3AED; }
+    /* ── Input focus rings ───────────────────────────────────────────────────── */
+    #emailInput:focus,
+    #waitlistEmailInput:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    /* ── Tab pills ───────────────────────────────────────────────────────────── */
+    .tab-btn {
+      flex: 1;
+      padding: 10px 0;
+      border-radius: 10px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+    .tab-btn.tab-active {
+      background-color: var(--accent);
+      color: #fff;
+      border: 1px solid transparent;
+    }
+    .tab-btn.tab-inactive {
+      background-color: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .tab-btn.tab-inactive:hover {
+      color: var(--text);
+      border-color: var(--dim);
+    }
+
+    /* ── Generate button ─────────────────────────────────────────────────────── */
+    #generateBtn {
+      background-color: var(--accent);
+      transition: background-color 0.2s ease, opacity 0.2s ease;
+    }
+    #generateBtn:not(:disabled):hover { background-color: var(--accent-light); }
+
+    /* ── Ghost buttons (Scarica / Anteprima) ─────────────────────────────────── */
+    .ghost-btn {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      transition: color 0.2s ease, border-color 0.2s ease;
+    }
+    .ghost-btn:hover { color: var(--text); border-color: var(--dim); }
+
+    /* ── Accent button (Copia link, modal CTA) ───────────────────────────────── */
+    .accent-btn {
+      background-color: var(--accent);
+      transition: background-color 0.2s ease;
+    }
+    .accent-btn:hover { background-color: var(--accent-light); }
+
+    /* ── Error box ───────────────────────────────────────────────────────────── */
+    #errore {
+      background: rgba(239,68,68,0.07);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: #FCA5A5;
+    }
   </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center px-4 py-12 font-sans">
 
-  <!-- ─── Modale email capture ────────────────────────────────────────────── -->
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MODALE — Email capture
+  ════════════════════════════════════════════════════════════════════════ -->
   <div id="emailModalOverlay"
        class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
-       style="background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);">
+       style="background:rgba(0,0,0,0.72); backdrop-filter:blur(6px);">
 
     <div id="emailModalBox"
-         class="w-full max-w-md rounded-2xl border border-gray-700 bg-gray-900 p-7 shadow-2xl">
+         class="w-full max-w-md rounded-2xl p-7 shadow-2xl"
+         style="background:var(--surface); border:1px solid var(--border);">
 
-      <!-- Header modal -->
-      <div class="flex items-center gap-2 mb-5">
-        <span class="text-lg font-extrabold" style="color:#7C3AED;">BriefToDeal</span>
-      </div>
+      <p class="text-xs font-semibold uppercase tracking-widest mb-5"
+         style="color:var(--accent); letter-spacing:0.12em;">BriefToDeal</p>
 
-      <h2 class="text-xl font-bold text-white mb-1">
+      <h2 class="text-xl font-bold mb-1" style="color:var(--text);">
         Un passo prima di continuare
       </h2>
-      <p class="text-gray-400 text-sm mb-6 leading-relaxed">
+      <p class="text-sm mb-6 leading-relaxed" style="color:var(--muted);">
         Inserisci la tua email per ricevere il link al documento
         e rimanere aggiornato su BriefToDeal.
       </p>
 
-      <!-- Form email -->
       <div class="flex flex-col gap-3">
-        <input
-          id="emailInput"
-          type="email"
-          placeholder="tua@email.com"
-          autocomplete="email"
-          class="w-full rounded-xl border border-gray-600 bg-gray-800
-                 text-gray-100 placeholder-gray-500 text-sm px-4 py-3
-                 transition-shadow duration-200"
-        />
-        <p id="emailError" class="hidden text-red-400 text-xs -mt-1"></p>
+        <input id="emailInput" type="email" placeholder="tua@email.com"
+               autocomplete="email"
+               class="w-full rounded-xl px-4 py-3 text-sm"
+               style="background:var(--bg); border:1px solid var(--border);
+                      color:var(--text); transition:box-shadow 0.2s ease;" />
+        <p id="emailError" class="hidden text-xs" style="color:#F87171;"></p>
 
-        <button
-          id="emailSubmitBtn"
-          onclick="submitEmail()"
-          class="w-full py-3 rounded-xl text-white font-semibold text-sm
-                 transition-opacity duration-150 hover:opacity-90 active:opacity-75
-                 disabled:opacity-50 disabled:cursor-not-allowed"
-          style="background-color:#7C3AED;">
-          Continua &rarr;
+        <button id="emailSubmitBtn" onclick="submitEmail()"
+                class="accent-btn w-full py-3 rounded-xl text-white font-semibold text-sm
+                       disabled:opacity-50 disabled:cursor-not-allowed">
+          Continua →
         </button>
       </div>
 
-      <!-- Skip -->
       <div class="mt-4 text-center">
-        <button
-          onclick="skipEmail()"
-          class="text-gray-500 text-xs hover:text-gray-400 transition-colors duration-150
-                 underline underline-offset-2">
+        <button onclick="skipEmail()"
+                class="text-xs underline underline-offset-2 transition-colors duration-150"
+                style="color:var(--dim);"
+                onmouseover="this.style.color='var(--muted)'"
+                onmouseout="this.style.color='var(--dim)'">
           Salta per ora
         </button>
       </div>
     </div>
   </div>
-  <!-- ─────────────────────────────────────────────────────────────────────── -->
 
-  <!-- ─── Modale upgrade Pro ──────────────────────────────────────────────── -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MODALE — Upgrade Pro
+  ════════════════════════════════════════════════════════════════════════ -->
   <div id="upgradeModalOverlay"
        class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
-       style="background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);">
+       style="background:rgba(0,0,0,0.8); backdrop-filter:blur(6px);">
 
     <div id="upgradeModalBox"
-         class="w-full max-w-md rounded-2xl border border-purple-800 bg-gray-900 p-7 shadow-2xl">
+         class="w-full max-w-md rounded-2xl p-7 shadow-2xl"
+         style="background:var(--surface); border:1px solid #3730A3;">
 
       <!-- Header -->
       <div class="text-center mb-6">
         <div class="text-4xl mb-3">🚀</div>
-        <h2 class="text-2xl font-bold text-white mb-2">Limite raggiunto</h2>
-        <p class="text-gray-400 text-sm leading-relaxed">
-          Hai usato i tuoi <strong class="text-white">3 documenti gratuiti</strong> di questo mese.<br>
-          Passa a Pro per generarne illimitati.
+        <h2 class="text-2xl font-bold mb-2" style="color:var(--text);">Limite raggiunto</h2>
+        <p class="text-sm leading-relaxed" style="color:var(--muted);">
+          Hai usato i tuoi
+          <strong style="color:var(--text);">3 documenti gratuiti</strong>
+          di questo mese.<br>Passa a Pro per generarne illimitati.
         </p>
       </div>
 
       <!-- Free vs Pro -->
       <div class="grid grid-cols-2 gap-3 mb-6">
         <!-- Free -->
-        <div class="rounded-xl border border-gray-700 bg-gray-800 p-4">
-          <div class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">Free</div>
-          <ul class="space-y-2 text-sm">
-            <li class="flex items-center gap-2 text-gray-400"><span class="text-green-400">✓</span> 3 doc/mese</li>
-            <li class="flex items-center gap-2 text-gray-400"><span class="text-green-400">✓</span> PDF + HTML</li>
-            <li class="flex items-center gap-2 text-gray-400"><span class="text-green-400">✓</span> Link condivisibile</li>
-            <li class="flex items-center gap-2 text-gray-500"><span class="text-gray-600">✗</span> Senza watermark</li>
-            <li class="flex items-center gap-2 text-gray-500"><span class="text-gray-600">✗</span> Storico documenti</li>
+        <div class="rounded-xl p-4"
+             style="background:var(--bg); border:1px solid var(--border);">
+          <div class="text-xs font-semibold uppercase tracking-widest mb-3"
+               style="color:var(--muted); letter-spacing:0.1em;">Free</div>
+          <ul class="space-y-2 text-sm" style="color:var(--muted);">
+            <li class="flex items-center gap-2"><span style="color:#4ade80;">✓</span>3 doc/mese</li>
+            <li class="flex items-center gap-2"><span style="color:#4ade80;">✓</span>PDF + HTML</li>
+            <li class="flex items-center gap-2"><span style="color:#4ade80;">✓</span>Link condivisibile</li>
+            <li class="flex items-center gap-2" style="color:var(--dim);"><span style="color:#374151;">✗</span>Senza watermark</li>
+            <li class="flex items-center gap-2" style="color:var(--dim);"><span style="color:#374151;">✗</span>Storico documenti</li>
           </ul>
-          <div class="mt-4 text-2xl font-bold text-gray-400">€0</div>
+          <div class="mt-4 text-2xl font-bold" style="color:var(--muted);">€0</div>
         </div>
         <!-- Pro -->
-        <div class="rounded-xl border border-purple-600 bg-gray-800 p-4 relative">
+        <div class="rounded-xl p-4 relative"
+             style="background:var(--bg); border:1px solid var(--accent);">
           <div class="absolute -top-2.5 left-1/2 -translate-x-1/2">
             <span class="text-white text-xs font-bold px-2.5 py-0.5 rounded-full"
-                  style="background:#7C3AED;">PRESTO</span>
+                  style="background:var(--accent);">PRESTO</span>
           </div>
-          <div class="text-purple-400 text-xs font-semibold uppercase tracking-wide mb-3">Pro</div>
-          <ul class="space-y-2 text-sm">
-            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> Illimitati</li>
-            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> PDF + HTML</li>
-            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> Link condivisibile</li>
-            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> Senza watermark</li>
-            <li class="flex items-center gap-2 text-gray-200"><span class="text-green-400">✓</span> Storico documenti</li>
+          <div class="text-xs font-semibold uppercase tracking-widest mb-3"
+               style="color:var(--accent); letter-spacing:0.1em;">Pro</div>
+          <ul class="space-y-2 text-sm" style="color:var(--text);">
+            <li class="flex items-center gap-2"><span style="color:#4ade80;">✓</span>Illimitati</li>
+            <li class="flex items-center gap-2"><span style="color:#4ade80;">✓</span>PDF + HTML</li>
+            <li class="flex items-center gap-2"><span style="color:#4ade80;">✓</span>Link condivisibile</li>
+            <li class="flex items-center gap-2"><span style="color:#4ade80;">✓</span>Senza watermark</li>
+            <li class="flex items-center gap-2"><span style="color:#4ade80;">✓</span>Storico documenti</li>
           </ul>
-          <div class="mt-4 text-2xl font-bold text-white">€19<span class="text-sm text-gray-400 font-normal">/mese</span></div>
+          <div class="mt-4 text-2xl font-bold" style="color:var(--text);">
+            €19<span class="text-sm font-normal" style="color:var(--muted);">/mese</span>
+          </div>
         </div>
       </div>
 
       <!-- Waitlist form -->
       <div id="waitlistForm">
-        <p class="text-gray-400 text-xs text-center mb-3">
+        <p class="text-xs text-center mb-3" style="color:var(--muted);">
           Pro non è ancora disponibile. Entra in lista d'attesa — ti avvisiamo per primi.
         </p>
         <div class="flex gap-2">
-          <input
-            id="waitlistEmailInput"
-            type="email"
-            placeholder="tua@email.com"
-            class="flex-1 rounded-xl border border-gray-600 bg-gray-800
-                   text-gray-100 placeholder-gray-500 text-sm px-3 py-2.5
-                   transition-shadow duration-200"
-          />
-          <button
-            onclick="inviaWaitlist()"
-            class="px-4 py-2.5 rounded-xl text-white font-semibold text-sm
-                   transition-opacity hover:opacity-90 active:opacity-75"
-            style="background-color:#7C3AED;">
+          <input id="waitlistEmailInput" type="email" placeholder="tua@email.com"
+                 class="flex-1 rounded-xl px-3 py-2.5 text-sm"
+                 style="background:var(--bg); border:1px solid var(--border);
+                        color:var(--text); transition:box-shadow 0.2s ease;" />
+          <button onclick="inviaWaitlist()"
+                  class="accent-btn px-4 py-2.5 rounded-xl text-white font-semibold text-sm">
             Unisciti
           </button>
         </div>
-        <p id="waitlistError" class="hidden text-red-400 text-xs mt-1.5"></p>
+        <p id="waitlistError" class="hidden text-xs mt-1.5" style="color:#F87171;"></p>
       </div>
 
       <!-- Successo waitlist -->
       <div id="waitlistSuccess" class="hidden text-center py-2">
         <p class="font-semibold" style="color:#4ade80;">✓ Sei nella lista d'attesa!</p>
-        <p class="text-gray-500 text-xs mt-1">Ti avvisiamo non appena Pro è disponibile.</p>
+        <p class="text-xs mt-1" style="color:var(--muted);">Ti avvisiamo non appena Pro è disponibile.</p>
       </div>
 
       <!-- Chiudi -->
-      <button
-        onclick="chiudiUpgradeModal()"
-        class="mt-5 w-full py-2.5 rounded-xl text-gray-400 text-sm border border-gray-700
-               hover:border-gray-500 hover:text-gray-300 transition-colors duration-150">
+      <button onclick="chiudiUpgradeModal()"
+              class="ghost-btn mt-5 w-full py-2.5 rounded-xl text-sm">
         Torna a BriefToDeal
       </button>
     </div>
   </div>
-  <!-- ─────────────────────────────────────────────────────────────────────── -->
 
-  <div class="w-full max-w-2xl flex flex-col items-center gap-6">
 
-    <!-- Logo -->
-    <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight"
-        style="color: #7C3AED;">BriefToDeal</h1>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MAIN UI
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div class="w-full max-w-xl flex flex-col gap-8">
 
-    <p class="text-gray-400 text-lg md:text-xl text-center">
-      Dal brief al contratto in 10 secondi
-    </p>
-
-    <!-- Selettore tipo -->
-    <div class="flex w-full gap-3">
-      <button onclick="selezionaTipo('contratto')"  id="btn-contratto"
-        class="flex-1 py-3 rounded-xl font-semibold text-sm tracking-wide transition-all duration-150"
-        style="background-color:#7C3AED; color:#fff;">Contratto</button>
-      <button onclick="selezionaTipo('preventivo')" id="btn-preventivo"
-        class="flex-1 py-3 rounded-xl font-semibold text-sm tracking-wide transition-all duration-150"
-        style="background-color:#374151; color:#9CA3AF;">Preventivo</button>
-      <button onclick="selezionaTipo('onboarding')" id="btn-onboarding"
-        class="flex-1 py-3 rounded-xl font-semibold text-sm tracking-wide transition-all duration-150"
-        style="background-color:#374151; color:#9CA3AF;">Onboarding</button>
+    <!-- ── Header ──────────────────────────────────────────────────────────── -->
+    <div class="flex flex-col items-center gap-2 text-center">
+      <span class="text-xs font-semibold uppercase"
+            style="color:var(--accent); letter-spacing:0.15em;">
+        AI Document Generator
+      </span>
+      <h1 class="text-5xl md:text-6xl font-bold tracking-tight" style="color:var(--text);">
+        BriefToDeal
+      </h1>
+      <p class="text-sm" style="color:var(--muted);">
+        Dal brief al contratto professionale in 10 secondi
+      </p>
     </div>
 
-    <!-- Textarea -->
-    <textarea
-      id="briefText" rows="10"
-      placeholder="Incolla qui il brief del tuo cliente..."
-      class="w-full rounded-2xl border border-gray-700 bg-gray-900 text-gray-100
-             text-base md:text-lg p-5 resize-none leading-relaxed transition-shadow duration-200"
-    ></textarea>
+    <!-- ── Tipo documento ───────────────────────────────────────────────────── -->
+    <div class="flex w-full gap-2">
+      <button onclick="selezionaTipo('contratto')"  id="btn-contratto"
+              class="tab-btn tab-active">Contratto</button>
+      <button onclick="selezionaTipo('preventivo')" id="btn-preventivo"
+              class="tab-btn tab-inactive">Preventivo</button>
+      <button onclick="selezionaTipo('onboarding')" id="btn-onboarding"
+              class="tab-btn tab-inactive">Onboarding</button>
+    </div>
 
-    <!-- Bottone genera -->
-    <button id="generateBtn" onclick="generaDocumento()"
-      class="w-full md:w-auto px-10 py-4 rounded-2xl text-white font-bold
-             text-lg tracking-wide transition-opacity duration-200 hover:opacity-90
-             active:opacity-75 disabled:opacity-50 disabled:cursor-not-allowed"
-      style="background-color: #7C3AED;">
-      Genera Documento
-    </button>
+    <!-- ── Textarea brief ───────────────────────────────────────────────────── -->
+    <textarea id="briefText" rows="9"
+              placeholder="Incolla qui il brief del tuo cliente — nome, servizio, importo, durata, data di inizio…"
+              class="w-full rounded-xl resize-none text-sm leading-relaxed"
+              style="background:var(--surface); border:1px solid var(--border);
+                     color:var(--text); padding:18px 20px;
+                     transition:box-shadow 0.2s ease;"></textarea>
 
-    <!-- Quota counter -->
-    <p id="quotaCounter" class="hidden text-center text-sm -mt-2">
-      <span id="quotaRemaining" class="font-semibold"></span>
-      <span id="quotaLabel" class="text-gray-500"> documenti gratuiti rimasti questo mese</span>
-    </p>
+    <!-- ── CTA + quota ──────────────────────────────────────────────────────── -->
+    <div class="flex flex-col items-center gap-3">
+      <button id="generateBtn" onclick="generaDocumento()"
+              class="w-full py-4 rounded-xl text-white font-semibold text-base
+                     disabled:opacity-40 disabled:cursor-not-allowed"
+              style="letter-spacing:0.01em;">
+        Genera Documento
+      </button>
 
-    <!-- Card risultato -->
+      <p id="quotaCounter" class="hidden text-center text-sm">
+        <span id="quotaRemaining" class="font-semibold"></span>
+        <span id="quotaLabel" style="color:var(--muted);"> documenti gratuiti rimasti questo mese</span>
+      </p>
+    </div>
+
+    <!-- ── Card risultato ───────────────────────────────────────────────────── -->
     <div id="resultCard"
-         class="hidden slide-up w-full rounded-2xl border border-gray-700 bg-gray-900 overflow-hidden">
+         class="hidden slide-up w-full rounded-2xl overflow-hidden"
+         style="background:var(--surface); border:1px solid var(--border);">
 
-      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+      <!-- Card header -->
+      <div class="flex items-center justify-between px-5 py-3.5"
+           style="border-bottom:1px solid var(--border);">
         <div class="flex items-center gap-2">
           <span id="cardTipoLabel"
-            class="text-xs font-semibold px-2.5 py-1 rounded-full"
-            style="background:#2D1B69; color:#A78BFA;">Contratto</span>
+                class="text-xs font-semibold uppercase px-2.5 py-1 rounded-full"
+                style="background:rgba(99,102,241,0.12); color:var(--accent);
+                       letter-spacing:0.08em;">
+            Contratto
+          </span>
           <span id="cardCacheBadge"
-            class="text-xs font-semibold px-2.5 py-1 rounded-full hidden"></span>
+                class="text-xs font-semibold px-2.5 py-1 rounded-full hidden"></span>
         </div>
-        <span id="cardCreatedAt" class="text-gray-500 text-xs"></span>
+        <span id="cardCreatedAt" class="text-xs" style="color:var(--muted);"></span>
       </div>
 
-      <div class="px-5 py-4">
-        <h2 id="cardCliente" class="text-xl font-bold text-white mb-0.5"></h2>
-        <p  id="cardAzienda"  class="text-gray-400 text-sm mb-4"></p>
-        <div class="divide-y divide-gray-800">
-          <div class="flex justify-between py-2.5">
-            <span class="text-gray-400 text-sm">Servizio</span>
-            <span id="cardServizio" class="text-gray-100 text-sm font-medium"></span>
+      <!-- Card body -->
+      <div class="px-5 py-5">
+        <h2 id="cardCliente" class="text-xl font-bold mb-0.5" style="color:var(--text);"></h2>
+        <p  id="cardAzienda"  class="text-sm mb-5" style="color:var(--muted);"></p>
+
+        <div style="border-top:1px solid var(--border);">
+          <div class="flex justify-between py-3" style="border-bottom:1px solid var(--border);">
+            <span class="text-sm" style="color:var(--muted);">Servizio</span>
+            <span id="cardServizio" class="text-sm font-medium" style="color:var(--text);"></span>
           </div>
-          <div class="flex justify-between py-2.5">
-            <span class="text-gray-400 text-sm">Importo mensile</span>
-            <span id="cardImporto" class="text-gray-100 text-sm font-medium"></span>
+          <div class="flex justify-between py-3" style="border-bottom:1px solid var(--border);">
+            <span class="text-sm" style="color:var(--muted);">Importo mensile</span>
+            <span id="cardImporto" class="text-sm font-medium" style="color:var(--text);"></span>
           </div>
-          <div class="flex justify-between py-2.5">
-            <span class="text-gray-400 text-sm">Durata</span>
-            <span id="cardDurata" class="text-gray-100 text-sm font-medium"></span>
+          <div class="flex justify-between py-3" style="border-bottom:1px solid var(--border);">
+            <span class="text-sm" style="color:var(--muted);">Durata</span>
+            <span id="cardDurata" class="text-sm font-medium" style="color:var(--text);"></span>
           </div>
-          <div class="flex justify-between py-2.5">
-            <span class="text-gray-400 text-sm">Inizio</span>
-            <span id="cardInizio" class="text-gray-100 text-sm font-medium"></span>
+          <div class="flex justify-between py-3" style="border-bottom:1px solid var(--border);">
+            <span class="text-sm" style="color:var(--muted);">Inizio</span>
+            <span id="cardInizio" class="text-sm font-medium" style="color:var(--text);"></span>
           </div>
-          <div class="flex justify-between py-2.5">
-            <span class="text-gray-500 text-sm font-semibold">Totale</span>
-            <span id="cardTotale" class="font-bold text-base" style="color:#A78BFA;"></span>
+          <div class="flex justify-between py-3">
+            <span class="text-sm font-semibold" style="color:var(--muted);">Totale</span>
+            <span id="cardTotale" class="text-base font-bold" style="color:var(--accent);"></span>
           </div>
         </div>
       </div>
 
-      <div class="px-5 pb-5 flex flex-col sm:flex-row gap-3">
+      <!-- Card actions -->
+      <div class="px-5 pb-5 flex flex-col sm:flex-row gap-2.5">
         <button id="copyBtn" onclick="copiaLink()"
-          class="copy-btn flex-1 flex items-center justify-center gap-2 py-2.5 px-4
-                 rounded-xl font-semibold text-sm text-white transition-colors duration-200"
-          style="background-color:#7C3AED;">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+                class="copy-btn accent-btn flex-1 flex items-center justify-center gap-2
+                       py-2.5 px-4 rounded-xl font-semibold text-sm text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none"
                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656
                  l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0
                  00-5.656-5.656l-1.1 1.1"/>
           </svg>
-          <span id="copyBtnText">Copia link condivisibile</span>
+          <span id="copyBtnText">Copia link</span>
         </button>
 
         <button id="redownloadBtn" onclick="riscaricaPdf()"
-          class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4
-                 rounded-xl font-semibold text-sm text-gray-300 border border-gray-600
-                 hover:border-gray-400 transition-colors duration-200">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+                class="ghost-btn flex-1 flex items-center justify-center gap-2
+                       py-2.5 px-4 rounded-xl font-semibold text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none"
                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -308,12 +413,10 @@
           Scarica PDF
         </button>
 
-        <!-- Anteprima HTML -->
         <button id="previewBtn"
-          class="hidden flex-1 flex items-center justify-center gap-2 py-2.5 px-4
-                 rounded-xl font-semibold text-sm text-gray-300 border border-gray-600
-                 hover:border-gray-400 transition-colors duration-200">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+                class="hidden ghost-btn flex-1 flex items-center justify-center gap-2
+                       py-2.5 px-4 rounded-xl font-semibold text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none"
                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -327,13 +430,16 @@
       </div>
     </div>
 
-    <!-- Errore -->
+    <!-- ── Errore ────────────────────────────────────────────────────────────── -->
     <div id="errore"
-         class="hidden w-full rounded-2xl border border-red-700 bg-red-950
-                text-red-400 text-sm p-4"></div>
+         class="hidden w-full rounded-xl text-sm px-5 py-4"></div>
 
-  </div>
+  </div><!-- /main ui -->
 
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       JAVASCRIPT — logica invariata, colori aggiornati
+  ════════════════════════════════════════════════════════════════════════ -->
   <script>
     // ── Config ────────────────────────────────────────────────────────────────
     const BACKEND_URL = 'https://web-production-1bf5d.up.railway.app';
@@ -346,11 +452,10 @@
     let ultimoDocId     = '';
     let ultimoHtmlUrl   = '';
 
-    // Email già catturata in questa sessione?
-    // sessionStorage → persiste fino a chiusura tab, non tra sessioni
+    // Email già catturata in questa sessione
     let emailCaptured = sessionStorage.getItem('btd_email') || '';
 
-    // Azione pendente mentre il modal è aperto: 'copy' | 'download'
+    // Azione pendente mentre il modal email è aperto: 'copy' | 'download'
     let pendingAction = null;
 
     // ── Selettore tipo ────────────────────────────────────────────────────────
@@ -358,8 +463,13 @@
       tipoSelezionato = tipo;
       ['contratto', 'preventivo', 'onboarding'].forEach(t => {
         const b = document.getElementById('btn-' + t);
-        b.style.backgroundColor = t === tipo ? '#7C3AED' : '#374151';
-        b.style.color           = t === tipo ? '#fff'    : '#9CA3AF';
+        if (t === tipo) {
+          b.classList.add('tab-active');
+          b.classList.remove('tab-inactive');
+        } else {
+          b.classList.remove('tab-active');
+          b.classList.add('tab-inactive');
+        }
       });
     }
 
@@ -379,10 +489,11 @@
 
       try {
         const response = await fetch(BACKEND_URL + '/genera', {
-          method: 'POST',
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ brief, tipo_documento: tipoSelezionato }),
+          body:    JSON.stringify({ brief, tipo_documento: tipoSelezionato }),
         });
+
         if (response.status === 429) {
           const err = await response.json().catch(() => ({}));
           if (err.upgrade) { mostraModalUpgrade(); return; }
@@ -396,15 +507,15 @@
         const remaining = response.headers.get('X-Remaining');
         if (remaining !== null) aggiornaQuotaCounter(parseInt(remaining, 10));
 
-        const docId      = response.headers.get('X-Doc-Id');
-        const shareUrl   = response.headers.get('X-Share-Url');
-        const cacheHit   = response.headers.get('X-Cache') === 'HIT';
-        const htmlUrl    = response.headers.get('X-Html-Url') || '';
-        ultimoHtmlUrl    = htmlUrl;
+        const docId       = response.headers.get('X-Doc-Id');
+        const shareUrl    = response.headers.get('X-Share-Url');
+        const cacheHit    = response.headers.get('X-Cache') === 'HIT';
+        const htmlUrl     = response.headers.get('X-Html-Url') || '';
+        ultimoHtmlUrl     = htmlUrl;
         const disposition = response.headers.get('Content-Disposition') || '';
         const match       = disposition.match(/filename="?([^";\n]+)"?/);
         ultimoFilename    = match ? match[1] : `${tipoSelezionato}.pdf`;
-        ultimoDocId       = docId  || '';
+        ultimoDocId       = docId    || '';
         ultimoShareUrl    = shareUrl || '';
         ultimoPdfBlob     = await response.blob();
 
@@ -431,13 +542,13 @@
 
       const badge = document.getElementById('cardCacheBadge');
       if (cacheHit) {
-        badge.textContent      = '⚡ Da cache';
-        badge.style.background = '#052e16';
-        badge.style.color      = '#4ade80';
+        badge.textContent          = '⚡ Cache';
+        badge.style.background     = 'rgba(74,222,128,0.10)';
+        badge.style.color          = '#4ade80';
       } else {
-        badge.textContent      = '✨ Nuovo';
-        badge.style.background = '#2D1B69';
-        badge.style.color      = '#A78BFA';
+        badge.textContent          = '✦ Nuovo';
+        badge.style.background     = 'rgba(99,102,241,0.12)';
+        badge.style.color          = '#818CF8';
       }
       badge.classList.remove('hidden');
 
@@ -449,10 +560,10 @@
 
       const importo = parseFloat(meta.importo_mensile) || 0;
       document.getElementById('cardImporto').textContent = importo
-        ? `EUR ${importo.toLocaleString('it-IT', {minimumFractionDigits:2})}`
+        ? `EUR ${importo.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
         : '—';
       document.getElementById('cardTotale').textContent = meta.totale || '—';
-      document.getElementById('copyBtn').style.display = shareUrl ? '' : 'none';
+      document.getElementById('copyBtn').style.display   = shareUrl ? '' : 'none';
 
       const previewBtn = document.getElementById('previewBtn');
       if (htmlUrl) {
@@ -472,11 +583,7 @@
     // ── Copia link (con gate email) ───────────────────────────────────────────
     function copiaLink() {
       if (!ultimoShareUrl) return;
-      if (!emailCaptured) {
-        mostraModalEmail('copy');
-      } else {
-        _eseguiCopia();
-      }
+      if (!emailCaptured) { mostraModalEmail('copy'); } else { _eseguiCopia(); }
     }
 
     function _eseguiCopia() {
@@ -494,19 +601,15 @@
       text.textContent = 'Link copiato!';
       setTimeout(() => {
         btn.classList.remove('copied');
-        btn.style.backgroundColor = '#7C3AED';
-        text.textContent = 'Copia link condivisibile';
+        btn.style.backgroundColor = '#6366F1';
+        text.textContent = 'Copia link';
       }, 2000);
     }
 
     // ── Ri-scarica PDF (con gate email) ───────────────────────────────────────
     function riscaricaPdf() {
       if (!ultimoPdfBlob) return;
-      if (!emailCaptured) {
-        mostraModalEmail('download');
-      } else {
-        _triggerDownload(ultimoPdfBlob, ultimoFilename);
-      }
+      if (!emailCaptured) { mostraModalEmail('download'); } else { _triggerDownload(ultimoPdfBlob, ultimoFilename); }
     }
 
     // ── Modal email ───────────────────────────────────────────────────────────
@@ -515,7 +618,6 @@
       document.getElementById('emailInput').value = '';
       document.getElementById('emailError').classList.add('hidden');
       document.getElementById('emailModalOverlay').classList.remove('hidden');
-      // Re-trigger animations
       const box = document.getElementById('emailModalBox');
       box.style.animation = 'none';
       void box.offsetWidth;
@@ -535,7 +637,6 @@
       const btn   = document.getElementById('emailSubmitBtn');
 
       errEl.classList.add('hidden');
-
       if (!email || !email.includes('@')) {
         errEl.textContent = 'Inserisci un indirizzo email valido.';
         errEl.classList.remove('hidden');
@@ -556,14 +657,14 @@
         }
       } catch (_) { /* non bloccante */ }
 
-      // Salva in sessione e chiudi
       emailCaptured = email;
       sessionStorage.setItem('btd_email', email);
 
+      btn.disabled    = false;
+      btn.textContent = 'Continua →';
+
       const action = pendingAction;
       chiudiModal();
-
-      // Esegui l'azione originale
       if (action === 'copy')     _eseguiCopia();
       if (action === 'download') _triggerDownload(ultimoPdfBlob, ultimoFilename);
     }
@@ -575,22 +676,16 @@
       if (action === 'download') _triggerDownload(ultimoPdfBlob, ultimoFilename);
     }
 
-    // Chiudi cliccando lo sfondo
+    // ── Event listeners ───────────────────────────────────────────────────────
     document.getElementById('emailModalOverlay').addEventListener('click', function(e) {
       if (e.target === this) skipEmail();
     });
-
-    // Enter nel campo email
     document.getElementById('emailInput').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') submitEmail();
     });
-
-    // Chiudi upgrade modal cliccando sfondo
     document.getElementById('upgradeModalOverlay').addEventListener('click', function(e) {
       if (e.target === this) chiudiUpgradeModal();
     });
-
-    // Enter nel campo waitlist
     document.getElementById('waitlistEmailInput').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') inviaWaitlist();
     });
@@ -613,27 +708,24 @@
       span.textContent = remaining;
       counter.classList.remove('hidden');
       if (remaining === 0) {
-        counter.style.color = '#EF4444';   // rosso
+        counter.style.color = '#EF4444';
         document.getElementById('quotaLabel').textContent = ' documenti gratuiti rimasti — passa a Pro';
       } else if (remaining === 1) {
-        counter.style.color = '#F59E0B';   // ambra
+        counter.style.color = '#F59E0B';
         document.getElementById('quotaLabel').textContent = ' documento gratuito rimasto questo mese';
       } else {
-        counter.style.color = '#6B7280';   // grigio
+        counter.style.color = '#6B7280';
         document.getElementById('quotaLabel').textContent = ' documenti gratuiti rimasti questo mese';
       }
     }
 
     // ── Modal upgrade Pro ─────────────────────────────────────────────────────
     function mostraModalUpgrade() {
-      const waitlistInput = document.getElementById('waitlistEmailInput');
-      waitlistInput.value = emailCaptured || '';
+      document.getElementById('waitlistEmailInput').value = emailCaptured || '';
       document.getElementById('waitlistError').classList.add('hidden');
       document.getElementById('waitlistForm').classList.remove('hidden');
       document.getElementById('waitlistSuccess').classList.add('hidden');
-      const overlay = document.getElementById('upgradeModalOverlay');
-      overlay.classList.remove('hidden');
-      // Re-trigger animation
+      document.getElementById('upgradeModalOverlay').classList.remove('hidden');
       const box = document.getElementById('upgradeModalBox');
       box.style.animation = 'none';
       void box.offsetWidth;
@@ -665,14 +757,13 @@
         });
       } catch (_) { /* fail silently */ }
 
-      // Salva anche in sessione come email catturata
       emailCaptured = email;
       sessionStorage.setItem('btd_email', email);
-
       document.getElementById('waitlistForm').classList.add('hidden');
       document.getElementById('waitlistSuccess').classList.remove('hidden');
     }
 
+    // ── Errore ────────────────────────────────────────────────────────────────
     function mostraErrore(msg) {
       const d = document.getElementById('errore');
       d.textContent = msg;
